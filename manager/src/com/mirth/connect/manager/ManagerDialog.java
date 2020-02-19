@@ -304,8 +304,8 @@ public class ManagerDialog extends JDialog {
         javaVersionField = new JLabel("javaVersion");
 
         contactPrefixLabel = new JLabel("Need Help?  Contact");
-        mirthSupportLink = new JLabel("<html><font color=blue><u>Mirth Corporation</u></font></html>");
-        mirthSupportLink.setToolTipText("Visit Mirth Corporation's website.");
+        mirthSupportLink = new JLabel("<html><font color=blue><u>NextGen Healthcare</u></font></html>");
+        mirthSupportLink.setToolTipText("Visit NextGen Healthcare's website.");
         mirthSupportLink.setCursor(new Cursor(Cursor.HAND_CURSOR));
         mirthSupportLink.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent evt) {
@@ -435,7 +435,7 @@ public class ManagerDialog extends JDialog {
     }
 
     private void mirthSupportLinkMouseClicked(MouseEvent evt) {
-        BareBonesBrowserLaunch.openURL("http://www.mirthcorp.com/services/support");
+        BareBonesBrowserLaunch.openURL("https://www.nextgen.com/contact-us");
     }
 
     private void startupActionPerformed(ActionEvent evt) {

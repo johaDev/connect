@@ -1897,7 +1897,7 @@ public class CommandLineInterface {
         dumpFilename = replaceValues(dumpFilename);
 
         StringBuilder builder = new StringBuilder();
-        builder.append("Mirth Channel Statistics Dump: " + (new Date()).toString() + "\n");
+        builder.append("Mirth Connect Channel Statistics Dump: " + (new Date()).toString() + "\n");
         builder.append("Name, Received, Filtered, Queued, Sent, Errored\n");
 
         List<DashboardStatus> channelStatuses = client.getAllChannelStatuses();

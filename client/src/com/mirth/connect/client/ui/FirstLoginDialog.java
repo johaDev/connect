@@ -135,8 +135,8 @@ public class FirstLoginDialog extends javax.swing.JDialog implements UserDialogI
 
         registerCheckBox.setBackground(new java.awt.Color(255, 255, 255));
         registerCheckBox.setSelected(true);
-        registerCheckBox.setText("Register user with Mirth");
-        registerCheckBox.setToolTipText("<html>Register your user information with Mirth to help us<br>improve the product and provide better service.</html>");
+        registerCheckBox.setText("Register user with NextGen Healthcare");
+        registerCheckBox.setToolTipText("<html>Register your user information with NextGen Healthcare to help us<br>improve the product and provide better service.</html>");
         registerCheckBox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 registerCheckBoxActionPerformed(evt);

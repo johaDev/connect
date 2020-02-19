@@ -143,9 +143,7 @@ public class WindowsServiceController implements ServiceController {
             String output = CmdUtil.execCmdWithOutput(WINDOWS_CMD_REG_QUERY);
             if (output.indexOf("Mirth Connect Server Manager.exe") != -1) {
                 setStartup(false);
-                setStartup(true);
             }
-
         } catch (Exception e) {
             e.printStackTrace();
         }

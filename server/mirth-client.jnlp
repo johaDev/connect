@@ -1,8 +1,8 @@
 <jnlp>
 	<information>
 		<title>Mirth Connect Administrator</title>
-		<vendor>Mirth Corporation</vendor>
-		<homepage href="http://www.mirthcorp.com"/>
+		<vendor>NextGen Healthcare</vendor>
+		<homepage href="http://www.nextgen.com"/>
 		<description>Open Source Healthcare Integration Engine</description>
 		
 		<icon href="images/mirth_128_ico.png"/>

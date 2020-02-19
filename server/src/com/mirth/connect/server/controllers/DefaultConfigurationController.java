@@ -9,47 +9,24 @@
 
 package com.mirth.connect.server.controllers;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.math.BigInteger;
-import java.nio.charset.Charset;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.KeyStore;
-import java.security.Provider;
-import java.security.SecureRandom;
-import java.security.cert.Certificate;
-import java.security.cert.X509Certificate;
-import java.sql.Connection;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Properties;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TimeZone;
-import java.util.TreeMap;
-import java.util.UUID;
-
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-import javax.net.ssl.SSLSocketFactory;
-import javax.xml.parsers.DocumentBuilderFactory;
-
+import com.google.common.base.Strings;
+import com.mirth.commons.encryption.Digester;
+import com.mirth.commons.encryption.Encryptor;
+import com.mirth.commons.encryption.KeyEncryptor;
+import com.mirth.commons.encryption.Output;
+import com.mirth.connect.client.core.ControllerException;
+import com.mirth.connect.donkey.model.DatabaseConstants;
+import com.mirth.connect.donkey.server.data.DonkeyStatisticsUpdater;
+import com.mirth.connect.donkey.util.DonkeyElement;
+import com.mirth.connect.model.*;
+import com.mirth.connect.model.converters.DocumentSerializer;
+import com.mirth.connect.model.converters.ObjectXMLSerializer;
+import com.mirth.connect.plugins.directoryresource.DirectoryResourceProperties;
+import com.mirth.connect.server.ExtensionLoader;
+import com.mirth.connect.server.mybatis.KeyValuePair;
+import com.mirth.connect.server.tools.ClassPathResource;
+import com.mirth.connect.server.util.*;
+import com.mirth.connect.util.*;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
@@ -81,48 +58,23 @@ import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.xml.sax.InputSource;
 
-import com.google.common.base.Strings;
-import com.mirth.commons.encryption.Digester;
-import com.mirth.commons.encryption.Encryptor;
-import com.mirth.commons.encryption.KeyEncryptor;
-import com.mirth.commons.encryption.Output;
-import com.mirth.connect.client.core.ControllerException;
-import com.mirth.connect.donkey.model.DatabaseConstants;
-import com.mirth.connect.donkey.server.data.DonkeyStatisticsUpdater;
-import com.mirth.connect.donkey.util.DonkeyElement;
-import com.mirth.connect.model.Channel;
-import com.mirth.connect.model.ChannelDependency;
-import com.mirth.connect.model.ChannelMetadata;
-import com.mirth.connect.model.ChannelTag;
-import com.mirth.connect.model.DatabaseSettings;
-import com.mirth.connect.model.DriverInfo;
-import com.mirth.connect.model.EncryptionSettings;
-import com.mirth.connect.model.PasswordRequirements;
-import com.mirth.connect.model.PluginMetaData;
-import com.mirth.connect.model.ResourceProperties;
-import com.mirth.connect.model.ResourcePropertiesList;
-import com.mirth.connect.model.ServerConfiguration;
-import com.mirth.connect.model.ServerSettings;
-import com.mirth.connect.model.UpdateSettings;
-import com.mirth.connect.model.converters.DocumentSerializer;
-import com.mirth.connect.model.converters.ObjectXMLSerializer;
-import com.mirth.connect.plugins.directoryresource.DirectoryResourceProperties;
-import com.mirth.connect.server.ExtensionLoader;
-import com.mirth.connect.server.mybatis.KeyValuePair;
-import com.mirth.connect.server.tools.ClassPathResource;
-import com.mirth.connect.server.util.DatabaseUtil;
-import com.mirth.connect.server.util.PasswordRequirementsChecker;
-import com.mirth.connect.server.util.ResourceUtil;
-import com.mirth.connect.server.util.SqlConfig;
-import com.mirth.connect.server.util.StatementLock;
-import com.mirth.connect.util.ChannelDependencyException;
-import com.mirth.connect.util.ChannelDependencyGraph;
-import com.mirth.connect.util.ConfigurationProperty;
-import com.mirth.connect.util.ConnectionTestResponse;
-import com.mirth.connect.util.JavaScriptSharedUtil;
-import com.mirth.connect.util.MigrationUtil;
-import com.mirth.connect.util.MirthSSLUtil;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.net.ssl.SSLSocketFactory;
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.*;
+import java.math.BigInteger;
+import java.net.URI;
+import java.nio.charset.Charset;
+import java.security.*;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.*;
+import java.util.Map.Entry;
 
 /**
  * The ConfigurationController provides access to the Mirth configuration.
@@ -134,6 +86,7 @@ public class DefaultConfigurationController extends ConfigurationController {
     public static final String PROPERTIES_DEPENDENCIES = "channelDependencies";
     public static final String PROPERTIES_CHANNEL_METADATA = "channelMetadata";
     public static final String PROPERTIES_CHANNEL_TAGS = "channelTags";
+    public static final String PROPERTIES_DATABASE_DRIVERS = "databaseDrivers";
     public static final String SECRET_KEY_ALIAS = "encryption";
     public static final String VACUUM_LOCK_STATEMENT_ID = "Configuration.vacuumConfigurationTable";
 
@@ -184,7 +137,7 @@ public class DefaultConfigurationController extends ConfigurationController {
     // singleton pattern
     private static ConfigurationController instance = null;
 
-    private DefaultConfigurationController() {
+    DefaultConfigurationController() {
 
     }
 
@@ -360,50 +313,31 @@ public class DefaultConfigurationController extends ConfigurationController {
 
             String rhinoLanguageVersionStr = mirthConfig.getString(RHINO_LANGUAGE_VERSION);
             if (StringUtils.isNotBlank(rhinoLanguageVersionStr)) {
-                switch (rhinoLanguageVersionStr.toUpperCase()) {
-                    case "1.0":
-                        rhinoLanguageVersion = 100;
-                        break;
-                    case "1.1":
-                        rhinoLanguageVersion = 110;
-                        break;
-                    case "1.2":
-                        rhinoLanguageVersion = 120;
-                        break;
-                    case "1.3":
-                        rhinoLanguageVersion = 130;
-                        break;
-                    case "1.4":
-                        rhinoLanguageVersion = 140;
-                        break;
-                    case "1.5":
-                        rhinoLanguageVersion = 150;
-                        break;
-                    case "1.6":
-                        rhinoLanguageVersion = 160;
-                        break;
-                    case "1.7":
-                        rhinoLanguageVersion = 170;
-                        break;
-                    case "1.8":
-                        rhinoLanguageVersion = 180;
-                        break;
-                    case "ES6":
-                        rhinoLanguageVersion = 200;
-                        break;
-                    case "DEFAULT":
-                        rhinoLanguageVersion = 0;
-                        break;
-                    default:
-                        logger.error("Unknown Rhino version '" + rhinoLanguageVersionStr + "', setting to default");
-                        rhinoLanguageVersion = 0;
-                        break;
-                }
+                rhinoLanguageVersion = getRhinoLanguageVersion(rhinoLanguageVersionStr);
                 JavaScriptSharedUtil.setRhinoLanguageVersion(rhinoLanguageVersion);
             }
         } catch (Exception e) {
             logger.error("Failed to initialize configuration controller", e);
         }
+    }
+
+    Integer getRhinoLanguageVersion(String rhinoLanguageVersionStr) {
+        switch (rhinoLanguageVersionStr.toUpperCase(Locale.ENGLISH)) { // @formatter:off
+            case "1.0": return 100;
+            case "1.1": return 110;
+            case "1.2": return 120;
+            case "1.3": return 130;
+            case "1.4": return 140;
+            case "1.5": return 150;
+            case "1.6": return 160;
+            case "1.7": return 170;
+            case "1.8": return 180;
+            case "ES6": return 200;
+            case "DEFAULT": return 0;
+            default:
+                logger.error("Unknown Rhino version '" + rhinoLanguageVersionStr + "', setting to default");
+                return 0;
+        } // @formatter:on
     }
 
     /*
@@ -550,28 +484,74 @@ public class DefaultConfigurationController extends ConfigurationController {
     @Override
     public List<DriverInfo> getDatabaseDrivers() throws ControllerException {
         logger.debug("retrieving database driver list");
-        File driversFile = new File(ClassPathResource.getResourceURI("dbdrivers.xml"));
 
-        if (driversFile.exists()) {
-            try {
-                ArrayList<DriverInfo> drivers = new ArrayList<DriverInfo>();
-                Document document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(driversFile);
-                Element driversElement = document.getDocumentElement();
+        String databaseDriversXml = getProperty(PROPERTIES_CORE, PROPERTIES_DATABASE_DRIVERS);
+        List<DriverInfo> drivers = null;
 
-                for (int i = 0; i < driversElement.getElementsByTagName("driver").getLength(); i++) {
-                    Element driverElement = (Element) driversElement.getElementsByTagName("driver").item(i);
-                    DriverInfo driver = new DriverInfo(driverElement.getAttribute("name"), driverElement.getAttribute("class"), driverElement.getAttribute("template"), driverElement.getAttribute("selectLimit"));
-                    logger.debug("found database driver: " + driver);
-                    drivers.add(driver);
+        if (StringUtils.isNotBlank(databaseDriversXml)) {
+            drivers = ObjectXMLSerializer.getInstance().deserializeList(databaseDriversXml, DriverInfo.class);
+        } else {
+            File driversFile = getDbDriversFile();
+
+            if (driversFile != null && driversFile.exists()) {
+                try (InputStream is = new FileInputStream(driversFile);
+                        Reader reader = new InputStreamReader(is, "UTF-8");) {
+                    drivers = parseDbdriversXml(reader);
+                } catch (Exception e) {
+                    throw new ControllerException("Error during loading of database drivers file: " + driversFile.getAbsolutePath(), e);
+                }
+            }
+        }
+
+        if (CollectionUtils.isEmpty(drivers)) {
+            // Use default list of drivers
+            drivers = DriverInfo.getDefaultDrivers();
+        }
+
+        return drivers;
+    }
+
+	File getDbDriversFile() {
+		URI uri = ClassPathResource.getResourceURI("dbdrivers.xml");
+		if (uri != null) {
+			return new File(uri);
+		}
+		return null;
+	}
+
+    List<DriverInfo> parseDbdriversXml(Reader reader) throws Exception {
+        List<DriverInfo> drivers = new ArrayList<DriverInfo>();
+        Document document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(new InputSource(reader));
+        Element driversElement = document.getDocumentElement();
+
+        for (int i = 0; i < driversElement.getElementsByTagName("driver").getLength(); i++) {
+            Element driverElement = (Element) driversElement.getElementsByTagName("driver").item(i);
+            String name = StringUtils.trimToEmpty(driverElement.getAttribute("name"));
+            String className = StringUtils.trimToEmpty(driverElement.getAttribute("class"));
+            String template = StringUtils.trimToEmpty(driverElement.getAttribute("template"));
+            String selectLimit = StringUtils.trimToEmpty(driverElement.getAttribute("selectLimit"));
+            String alternativeClasses = StringUtils.trimToEmpty(driverElement.getAttribute("alternativeClasses"));
+
+            if (StringUtils.isNoneBlank(name, className, template)) {
+                List<String> alternativeClassNames = new ArrayList<String>();
+                if (StringUtils.isNotBlank(alternativeClasses)) {
+                    alternativeClassNames.addAll(new ArrayList<String>(Arrays.asList(StringUtils.split(alternativeClasses, ','))));
                 }
 
-                return drivers;
-            } catch (Exception e) {
-                throw new ControllerException("Error during loading of database drivers file: " + driversFile.getAbsolutePath(), e);
+                DriverInfo driver = new DriverInfo(name, className, template, selectLimit, alternativeClassNames);
+                logger.debug("Found database driver: " + driver);
+                drivers.add(driver);
+            } else {
+                logger.error("Error adding database driver: Name, class, or template is blank.");
             }
-        } else {
-            throw new ControllerException("Could not locate database drivers file: " + driversFile.getAbsolutePath());
         }
+
+        return drivers;
+    }
+
+    @Override
+    public void setDatabaseDrivers(List<DriverInfo> drivers) throws ControllerException {
+        saveProperty(PROPERTIES_CORE, PROPERTIES_DATABASE_DRIVERS, ObjectXMLSerializer.getInstance().serialize(drivers));
     }
 
     @Override
@@ -702,7 +682,7 @@ public class DefaultConfigurationController extends ConfigurationController {
         loadDatabaseConfigPropsIfNecessary();
         return configurationMap;
     }
-    
+
     private void loadDatabaseConfigPropsIfNecessary() {
         try {
             if (!configMapLoaded && "database".equals(mirthConfig.getString(CONFIGURATION_MAP_LOCATION))) {

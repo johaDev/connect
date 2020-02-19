@@ -100,7 +100,7 @@ public class ErrorDialog extends MirthDialog {
         question.setBackground(new java.awt.Color(224, 223, 227));
         question.setBorder(null);
         question.setEditable(false);
-        question.setText("An unexpected error has occurred.  If this is a severe error and you are on Mirth Support, please contact the Mirth Help Desk.");
+        question.setText("An unexpected error has occurred.  If this is a severe error and you are on NextGen Healthcare Support, please contact the NextGen Healthcare Help Desk.");
         question.setFocusable(false);
         questionPane.setViewportView(question);
 
@@ -115,7 +115,7 @@ public class ErrorDialog extends MirthDialog {
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(image)
                         .addGap(20, 20, 20)
-                        .addComponent(questionPane, javax.swing.GroupLayout.DEFAULT_SIZE, 364, Short.MAX_VALUE)
+                        .addComponent(questionPane, javax.swing.GroupLayout.DEFAULT_SIZE, 396, Short.MAX_VALUE)
                         .addGap(20, 20, 20))
                     .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 404, Short.MAX_VALUE))
                 .addContainerGap())

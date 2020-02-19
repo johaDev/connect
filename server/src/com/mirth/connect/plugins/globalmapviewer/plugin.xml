@@ -1,9 +1,9 @@
 <pluginMetaData path="globalmapviewer">
 	<name>Global Map Viewer</name>
-	<author>Mirth Corporation</author>
+	<author>NextGen Healthcare</author>
 	<pluginVersion>@mirthversion</pluginVersion>
-	<mirthVersion>3.8.0</mirthVersion>
-	<url>http://www.mirthcorp.com</url>
+	<mirthVersion>3.9.0</mirthVersion>
+	<url>http://www.nextgen.com</url>
 	<description>This plugin allows you to view the global map and global channel maps in the Mirth Connect Administrator.</description>
 	<serverClasses>
 		<string>com.mirth.connect.plugins.globalmapviewer.GlobalMapProvider</string>

@@ -1,9 +1,9 @@
 <pluginMetaData path="mapper">
 	<name>Mapper Transformer Step</name>
-	<author>Mirth Corporation</author>
+	<author>NextGen Healthcare</author>
 	<pluginVersion>@mirthversion</pluginVersion>
-	<mirthVersion>3.8.0</mirthVersion>
-	<url>http://www.mirthcorp.com</url>
+	<mirthVersion>3.9.0</mirthVersion>
+	<url>http://www.nextgen.com</url>
 	<description>This plugin provides a Mapping step type for Mirth Connect transformers</description>
 	<clientClasses>
 		<string>com.mirth.connect.plugins.mapper.MapperStepPlugin</string>

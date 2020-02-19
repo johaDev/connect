@@ -118,8 +118,14 @@ public class SmtpSender extends ConnectorSettingsPanel {
         properties.setHtml(htmlYes.isSelected());
 
         properties.setBody(bodyTextPane.getText());
-        properties.setHeaders(getHeaders());
-        properties.setAttachments(getAttachments());
+        
+        properties.setUseHeadersVariable(useHeadersVariableRadio.isSelected());
+        properties.setHeadersMap(getHeaders());
+        properties.setHeadersVariable(headersVariableField.getText());
+        
+        properties.setUseAttachmentsVariable(useAttachmentsVariableRadio.isSelected());
+        properties.setAttachmentsList(getAttachments());
+        properties.setAttachmentsVariable(attachmentsVariableField.getText());
 
         return properties;
     }
@@ -132,11 +138,27 @@ public class SmtpSender extends ConnectorSettingsPanel {
         smtpPortField.setText(props.getSmtpPort());
         if (props.isOverrideLocalBinding()) {
             overrideLocalBindingYesRadio.setSelected(true);
-            overrideLocalBindingYesRadioActionPerformed();
+            overrideLocalBindingFieldsEnabled(true);
         } else {
             overrideLocalBindingNoRadio.setSelected(true);
-            overrideLocalBindingNoRadioActionPerformed();
+            overrideLocalBindingFieldsEnabled(false);
         }
+        
+        if (props.isUseHeadersVariable()) {
+            useHeadersVariableRadio.setSelected(true);
+        } else {
+            useHeadersTableRadio.setSelected(true);
+        }
+        headersVariableField.setText(props.getHeadersVariable());
+        useHeadersVariableFieldsEnabled(props.isUseHeadersVariable());
+        
+        if (props.isUseAttachmentsVariable()) {
+            useAttachmentsVariableRadio.setSelected(true);
+        } else {
+            useAttachmentsListRadio.setSelected(true);
+        }
+        attachmentsVariableField.setText(props.getAttachmentsVariable());
+        useAttachmentsVariableFieldsEnabled(props.isUseAttachmentsVariable());
 
         localAddressField.setText(props.getLocalAddress());
         localPortField.setText(props.getLocalPort());
@@ -151,10 +173,10 @@ public class SmtpSender extends ConnectorSettingsPanel {
         }
 
         if (props.isAuthentication()) {
-            useAuthenticationYesActionPerformed();
+            setAuthenticationFieldsEnabled(true);
             useAuthenticationYes.setSelected(true);
         } else {
-            useAuthenticationNoActionPerformed();
+            setAuthenticationFieldsEnabled(false);
             useAuthenticationNo.setSelected(true);
         }
 
@@ -174,9 +196,9 @@ public class SmtpSender extends ConnectorSettingsPanel {
 
         bodyTextPane.setText(props.getBody());
 
-        setHeaders(props.getHeaders());
+        setHeaders(props.getHeadersMap());
 
-        setAttachments(props.getAttachments());
+        setAttachments(props.getAttachmentsList());
     }
 
     @Override
@@ -398,9 +420,10 @@ public class SmtpSender extends ConnectorSettingsPanel {
         attachmentsTable = new MirthTable();
 
         for (int i = 0; i < attachments.size(); i++) {
-            tableData[i][ATTACHMENTS_NAME_COLUMN] = attachments.get(i).getName();
-            tableData[i][ATTACHMENTS_CONTENT_COLUMN] = attachments.get(i).getContent();
-            tableData[i][ATTACHMENTS_MIME_TYPE_COLUMN] = attachments.get(i).getMimeType();
+            Attachment entry = attachments.get(i);
+            tableData[i][ATTACHMENTS_NAME_COLUMN] = entry.getName();
+            tableData[i][ATTACHMENTS_CONTENT_COLUMN] = entry.getContent();
+            tableData[i][ATTACHMENTS_MIME_TYPE_COLUMN] = entry.getMimeType();
         }
 
         attachmentsTable.setModel(new DefaultTableModel(tableData, new String[] {
@@ -579,7 +602,7 @@ public class SmtpSender extends ConnectorSettingsPanel {
         overrideLocalBindingYesRadio.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent evt) {
-                overrideLocalBindingYesRadioActionPerformed();
+                overrideLocalBindingFieldsEnabled(true);
             }
         });
         overrideLocalBindingButtonGroup.add(overrideLocalBindingYesRadio);
@@ -589,7 +612,7 @@ public class SmtpSender extends ConnectorSettingsPanel {
         overrideLocalBindingNoRadio.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent evt) {
-                overrideLocalBindingNoRadioActionPerformed();
+                overrideLocalBindingFieldsEnabled(false);
             }
         });
         overrideLocalBindingButtonGroup.add(overrideLocalBindingNoRadio);
@@ -626,7 +649,7 @@ public class SmtpSender extends ConnectorSettingsPanel {
         useAuthenticationYes.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent evt) {
-                useAuthenticationYesActionPerformed();
+                setAuthenticationFieldsEnabled(true);
             }
         });
         useAuthenticationButtonGroup.add(useAuthenticationYes);
@@ -636,7 +659,7 @@ public class SmtpSender extends ConnectorSettingsPanel {
         useAuthenticationNo.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent evt) {
-                useAuthenticationNoActionPerformed();
+                setAuthenticationFieldsEnabled(false);
             }
         });
         useAuthenticationButtonGroup.add(useAuthenticationNo);
@@ -695,6 +718,28 @@ public class SmtpSender extends ConnectorSettingsPanel {
             }
         });
 
+        useHeadersTableRadio = new MirthRadioButton("Use Table");
+        useHeadersTableRadio.setBackground(getBackground());
+        useHeadersTableRadio.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
+                useHeadersVariableFieldsEnabled(false);
+            }
+        });
+        useHeadersVariableRadio = new MirthRadioButton("Use Map:");
+        useHeadersVariableRadio.setBackground(getBackground());
+        useHeadersVariableRadio.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
+                useHeadersVariableFieldsEnabled(true);
+            }
+        });
+        ButtonGroup headersSourceButtonGroup = new ButtonGroup();
+        headersSourceButtonGroup.add(useHeadersTableRadio);
+        headersSourceButtonGroup.add(useHeadersVariableRadio);     
+
+        headersVariableField = new MirthTextField();
+        
         attachmentsLabel = new JLabel("Attachments:");
 
         attachmentsTable = new MirthTable();
@@ -715,10 +760,32 @@ public class SmtpSender extends ConnectorSettingsPanel {
                 deleteAttachmentButtonActionPerformed();
             }
         });
+        
+        useAttachmentsListRadio = new MirthRadioButton("Use Table");
+        useAttachmentsListRadio.setBackground(getBackground());
+        useAttachmentsListRadio.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
+                useAttachmentsVariableFieldsEnabled(false);
+            }
+        });
+        useAttachmentsVariableRadio = new MirthRadioButton("Use List:");
+        useAttachmentsVariableRadio.setBackground(getBackground());
+        useAttachmentsVariableRadio.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
+                useAttachmentsVariableFieldsEnabled(true);
+            }
+        });
+        ButtonGroup attachmentSourceButtonGroup = new ButtonGroup();
+        attachmentSourceButtonGroup.add(useAttachmentsListRadio);
+        attachmentSourceButtonGroup.add(useAttachmentsVariableRadio);     
+
+        attachmentsVariableField = new MirthTextField();
     }
 
     private void initToolTips() {
-        smtpHostField.setToolTipText("<html>Enter the DNS domain name or IP address of the SMTP server to use to send the email messages.<br>Note that sending email to an SMTP server that is not expecting it may result in the IP of the box running Mirth being added to the server's \"blacklist.\"</html>");
+        smtpHostField.setToolTipText("<html>Enter the DNS domain name or IP address of the SMTP server to use to send the email messages.<br>Note that sending email to an SMTP server that is not expecting it may result in the IP of the box running Mirth Connect being added to the server's \"blacklist.\"</html>");
         smtpPortField.setToolTipText("<html>The port number of the SMTP server to send the email message to.<br>Generally, the default port of 25 is used.</html>");
 
         String toolTipText = "<html>Select Yes to override the local address and port that the client socket will be bound to.<br/>Select No to use the default value picked by the Socket class.<br/>A local port of zero (0) indicates that the OS should assign an ephemeral port automatically.<br/><br/>Note that if a specific (non-zero) local port is chosen, then after a socket is closed it's up to the<br/>underlying OS to release the port before the next socket creation, otherwise the bind attempt will fail.<br/></html>";
@@ -741,11 +808,19 @@ public class SmtpSender extends ConnectorSettingsPanel {
         toField.setToolTipText("The name of the mailbox (person, usually) to which the email should be sent.");
         fromField.setToolTipText("The name that should appear as the \"From address\" in the email.");
         subjectField.setToolTipText("The text that should appear as the subject of the email, as seen by the receiver's email client.");
-        charsetEncodingComboBox.setToolTipText("<html>Select the character set encoding used by the sender of the message,<br> or Default to assume the default character set encoding for the JVM running Mirth.</html>");
+        charsetEncodingComboBox.setToolTipText("<html>Select the character set encoding used by the sender of the message,<br> or Default to assume the default character set encoding for the JVM running Mirth Connect.</html>");
 
         toolTipText = "Selects whether HTML tags can be used in the email message body.";
         htmlYes.setToolTipText(toolTipText);
         htmlNo.setToolTipText(toolTipText);
+        
+        useHeadersTableRadio.setToolTipText("<html>The table below will be used to populate headers.</html>");
+        useHeadersVariableRadio.setToolTipText("<html>The Java map specified by the following variable will be used to populate headers.<br/>The map must have String keys and either String or List&lt;String&gt; values.</html>");
+        headersVariableField.setToolTipText("<html>The variable of a Java map to use to populate headers.<br/>The map must have String keys and either String or List&lt;String&gt; values.</html>");
+        
+        useAttachmentsListRadio.setToolTipText("<html>The table below will be used to populate attachments.</html>");
+        useAttachmentsVariableRadio.setToolTipText("<html>The Java list specified by the following variable will be used to populate attachments.<br/>The list must contain AttachmentEntry values - anything else is ignored.</html>");
+        attachmentsVariableField.setToolTipText("<html>The variable of a Java list to use to populate attachments.<br/>The list must contain AttachmentEntry values.</html>");
     }
 
     private void initLayout() {
@@ -789,12 +864,18 @@ public class SmtpSender extends ConnectorSettingsPanel {
         add(htmlNo);
         add(bodyLabel, "newline, top, right");
         add(bodyTextPane, "grow, push, sx, h 89:");
-        add(headersLabel, "newline, top, right");
-        add(headersPane, "growx, pushx, span 2, h 85!");
+        add(headersLabel, "newline, right");
+        add(useHeadersTableRadio, "split 3");
+        add(useHeadersVariableRadio);
+        add(headersVariableField, "w 125");
+        add(headersPane, "newline, growx, pushx, skip 1, span 2, h 85!");
         add(newHeaderButton, "top, flowy, split 2, w 44!");
         add(deleteHeaderButton, "w 44!");
-        add(attachmentsLabel, "newline, top, right");
-        add(attachmentsPane, "growx, pushx, span 2, h 85!");
+        add(attachmentsLabel, "newline, right");
+        add(useAttachmentsListRadio, "split 3");
+        add(useAttachmentsVariableRadio);
+        add(attachmentsVariableField, "w 125");
+        add(attachmentsPane, "newline, growx, pushx, skip 1, span 2, h 85!");
         add(newAttachmentButton, "top, flowy, split 2, w 44!");
         add(deleteAttachmentButton, "w 44!");
     }
@@ -824,20 +905,12 @@ public class SmtpSender extends ConnectorSettingsPanel {
         }
     }
 
-    private void useAuthenticationYesActionPerformed() {
-        usernameLabel.setEnabled(true);
-        usernameField.setEnabled(true);
+    private void setAuthenticationFieldsEnabled(boolean useAuthentication) {
+        usernameLabel.setEnabled(useAuthentication);
+        usernameField.setEnabled(useAuthentication);
 
-        passwordLabel.setEnabled(true);
-        passwordField.setEnabled(true);
-    }
-
-    private void useAuthenticationNoActionPerformed() {
-        usernameLabel.setEnabled(false);
-        usernameField.setEnabled(false);
-
-        passwordLabel.setEnabled(false);
-        passwordField.setEnabled(false);
+        passwordLabel.setEnabled(useAuthentication);
+        passwordField.setEnabled(useAuthentication);
     }
 
     private void sendTestEmailButtonActionPerformed() {
@@ -892,18 +965,25 @@ public class SmtpSender extends ConnectorSettingsPanel {
         }
     }
 
-    private void overrideLocalBindingYesRadioActionPerformed() {
-        localAddressField.setEnabled(true);
-        localAddressLabel.setEnabled(true);
-        localPortField.setEnabled(true);
-        localPortLabel.setEnabled(true);
+    private void overrideLocalBindingFieldsEnabled(boolean isUseLocal) {
+        localAddressField.setEnabled(isUseLocal);
+        localAddressLabel.setEnabled(isUseLocal);
+        localPortField.setEnabled(isUseLocal);
+        localPortLabel.setEnabled(isUseLocal);
     }
 
-    private void overrideLocalBindingNoRadioActionPerformed() {
-        localAddressField.setEnabled(false);
-        localAddressLabel.setEnabled(false);
-        localPortField.setEnabled(false);
-        localPortLabel.setEnabled(false);
+    private void useAttachmentsVariableFieldsEnabled(boolean useVariable) {
+        attachmentsVariableField.setEnabled(useVariable);
+        attachmentsTable.setEnabled(!useVariable);
+        newAttachmentButton.setEnabled(!useVariable);
+        deleteAttachmentButton.setEnabled(!useVariable && attachmentsTable.getSelectedRow() > -1);
+    }
+    
+    private void useHeadersVariableFieldsEnabled(boolean useVariable) {
+        headersVariableField.setEnabled(useVariable);
+        headersTable.setEnabled(!useVariable);
+        newHeaderButton.setEnabled(!useVariable);
+        deleteHeaderButton.setEnabled(!useVariable && headersTable.getSelectedRow() > -1);
     }
 
     private JLabel smtpHostLabel;
@@ -949,9 +1029,15 @@ public class SmtpSender extends ConnectorSettingsPanel {
     private JScrollPane headersPane;
     private JButton newHeaderButton;
     private JButton deleteHeaderButton;
+    private MirthRadioButton useHeadersTableRadio;
+    private MirthRadioButton useHeadersVariableRadio;
+    private MirthTextField headersVariableField;
     private JLabel attachmentsLabel;
     private MirthTable attachmentsTable;
     private JScrollPane attachmentsPane;
     private JButton newAttachmentButton;
     private JButton deleteAttachmentButton;
+    private MirthRadioButton useAttachmentsListRadio;
+    private MirthRadioButton useAttachmentsVariableRadio;
+    private MirthTextField attachmentsVariableField;
 }

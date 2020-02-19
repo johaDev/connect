@@ -114,7 +114,7 @@
             </div>
         </div>
         <div id="smallSubPage">
-        	<p>&copy; 2018 Mirth Corporation | Mirth Connect</p>
+        	<p>&copy; 2019 NextGen Healthcare | Mirth Connect</p>
         </div>
     
         <script type="text/javascript">
@@ -305,7 +305,7 @@
         			if (suffix == 'linux.sh') {
         				suffix = 'unix.sh';
         			}
-        			window.location.href = 'https://s3.amazonaws.com/downloads.mirthcorp.com/connect-client-launcher/mirth-administrator-launcher-1.0.0-' + suffix;
+        			window.location.href = 'https://s3.amazonaws.com/downloads.mirthcorp.com/connect-client-launcher/mirth-administrator-launcher-1.1.0-' + suffix;
         		}});
        		}
         

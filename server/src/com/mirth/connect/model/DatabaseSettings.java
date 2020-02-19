@@ -40,7 +40,7 @@ public class DatabaseSettings extends AbstractSettings implements Serializable, 
     static {
         databaseDriverMap = new HashMap<String, String>();
         databaseDriverMap.put("derby", "org.apache.derby.jdbc.EmbeddedDriver");
-        databaseDriverMap.put("mysql", "com.mysql.jdbc.Driver");
+        databaseDriverMap.put("mysql", "com.mysql.cj.jdbc.Driver");
         databaseDriverMap.put("oracle", "oracle.jdbc.OracleDriver");
         databaseDriverMap.put("postgres", "org.postgresql.Driver");
         databaseDriverMap.put("sqlserver", "net.sourceforge.jtds.jdbc.Driver");
@@ -226,17 +226,21 @@ public class DatabaseSettings extends AbstractSettings implements Serializable, 
         this.dirBase = dirBase;
     }
 
-    private String getMappedDatabaseDriver() {
-        if (StringUtils.isEmpty(databaseDriver)) {
+    String getMappedDatabaseDriver() {
+        if (StringUtils.isBlank(databaseDriver)) {
             return MapUtils.getString(databaseDriverMap, getDatabase());
         } else {
             return databaseDriver;
         }
     }
 
-    private String getMappedReadOnlyDatabaseDriver() {
-        if (StringUtils.isEmpty(databaseReadOnlyDriver)) {
-            return MapUtils.getString(databaseDriverMap, StringUtils.defaultIfBlank(getDatabaseReadOnly(), getDatabase()));
+    String getMappedReadOnlyDatabaseDriver() {
+        if (StringUtils.isBlank(databaseReadOnlyDriver)) {
+            if (StringUtils.isNotBlank(getDatabaseReadOnly()) && !StringUtils.equalsIgnoreCase(getDatabase(), getDatabaseReadOnly())) {
+                return MapUtils.getString(databaseDriverMap, getDatabaseReadOnly());
+            } else {
+                return getMappedDatabaseDriver();
+            }
         } else {
             return databaseReadOnlyDriver;
         }
