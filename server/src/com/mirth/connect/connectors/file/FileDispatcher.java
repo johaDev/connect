@@ -15,7 +15,8 @@ import java.io.InputStream;
 import java.net.URI;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.mirth.connect.connectors.file.filesystems.FileSystemConnection;
 import com.mirth.connect.donkey.model.channel.ConnectorProperties;
@@ -37,7 +38,7 @@ import com.mirth.connect.util.CharsetUtils;
 import com.mirth.connect.util.ErrorMessageBuilder;
 
 public class FileDispatcher extends DestinationConnector {
-    private Logger logger = Logger.getLogger(this.getClass());
+    private Logger logger = LogManager.getLogger(this.getClass());
     private FileDispatcherProperties connectorProperties;
     private FileConnector fileConnector;
     private String charsetEncoding;
@@ -158,6 +159,7 @@ public class FileDispatcher extends DestinationConnector {
             String template = fileDispatcherProperties.getTemplate();
 
             byte[] bytes = getAttachmentHandlerProvider().reAttachMessage(template, connectorMessage, charsetEncoding, fileDispatcherProperties.isBinary(), fileDispatcherProperties.getDestinationConnectorProperties().isReattachAttachments());
+            long contentLength = bytes.length;
 
             is = new ByteArrayInputStream(bytes);
 
@@ -168,11 +170,11 @@ public class FileDispatcher extends DestinationConnector {
             } else if (fileDispatcherProperties.isTemporary()) {
                 String tempFilename = filename + ".tmp";
                 logger.debug("writing temp file: " + tempFilename);
-                fileSystemConnection.writeFile(tempFilename, path, false, is, connectorMessage.getConnectorMap());
+                fileSystemConnection.writeFile(tempFilename, path, false, is, contentLength, connectorMessage.getConnectorMap());
                 logger.debug("renaming temp file: " + filename);
                 fileSystemConnection.move(tempFilename, path, filename, path);
             } else {
-                fileSystemConnection.writeFile(filename, path, fileDispatcherProperties.isOutputAppend(), is, connectorMessage.getConnectorMap());
+                fileSystemConnection.writeFile(filename, path, fileDispatcherProperties.isOutputAppend(), is, contentLength, connectorMessage.getConnectorMap());
             }
 
             // update the message status to sent

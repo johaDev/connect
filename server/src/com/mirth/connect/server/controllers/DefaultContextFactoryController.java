@@ -20,9 +20,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.mozilla.javascript.ContextFactory;
 
 import com.mirth.connect.model.LibraryProperties;
@@ -32,12 +33,13 @@ import com.mirth.connect.server.util.javascript.MirthContextFactory;
 
 public class DefaultContextFactoryController extends ContextFactoryController {
 
-    private Logger logger = Logger.getLogger(getClass());
+    private Logger logger = LogManager.getLogger(getClass());
     private ExtensionController extensionController;
     private Map<String, LibraryProperties> libraryResources = new ConcurrentHashMap<String, LibraryProperties>();
     private Map<String, List<URL>> libraryCache = new ConcurrentHashMap<String, List<URL>>();
     private volatile Set<String> globalScriptResourceIds = new LinkedHashSet<String>();
     private Map<Set<String>, MirthContextFactory> contextFactoryMap = new ConcurrentHashMap<Set<String>, MirthContextFactory>();
+    private Map<Set<String>, MirthContextFactory> debugContextFactoryMap = new ConcurrentHashMap<Set<String>, MirthContextFactory>();
 
     private static ContextFactoryController instance = null;
 
@@ -76,7 +78,7 @@ public class DefaultContextFactoryController extends ContextFactoryController {
     @Override
     public synchronized void initGlobalContextFactory() {
         logger.debug("Initializing global context factory.");
-        ContextFactory.initGlobal(new MirthContextFactory(new URL[0], new HashSet<String>()));
+        ContextFactory.initGlobal(new MirthContextFactory(new URL[0], new HashSet<String>(), false));
     }
 
     @Override
@@ -183,6 +185,48 @@ public class DefaultContextFactoryController extends ContextFactoryController {
     }
 
     @Override
+    public MirthContextFactory getDebugContextFactory(Set<String> libraryResourceIds, String channelId, String scriptId) throws Exception {
+    	Set<String> key = getDebugContextFactoryMapKey(libraryResourceIds, channelId, scriptId);
+    	
+    	MirthContextFactory contextFactory = debugContextFactoryMap.get(key);
+    	
+    	if (contextFactory == null) {
+    		synchronized (debugContextFactoryMap) {
+    			contextFactory = debugContextFactoryMap.get(key);
+    			
+    			if (contextFactory == null) {
+    				libraryResourceIds = new LinkedHashSet<String>(libraryResourceIds);
+    	            redactResourceIds(libraryResourceIds);
+    	            List<URL> libraries = getLibraries(libraryResourceIds, false, false);
+    				contextFactory = new MirthContextFactory(libraries.toArray(new URL[libraries.size()]), new HashSet<String>(), loadParentFirst(libraryResourceIds));
+    				debugContextFactoryMap.put(key, contextFactory);
+    			}
+    		}
+    	}
+
+    	return contextFactory;
+    }
+    
+    @Override
+    public void removeDebugContextFactory(Set<String> libraryResourceIds, String channelId, String scriptId) {
+    	Set<String> key = getDebugContextFactoryMapKey(libraryResourceIds, channelId, scriptId);
+    	debugContextFactoryMap.remove(key);
+    }
+    
+    private Set<String> getDebugContextFactoryMapKey(Set<String> libraryResourceIds, String channelId, String scriptId) {
+    	java.util.Objects.requireNonNull(channelId);
+    	if (libraryResourceIds == null) {
+    		libraryResourceIds = new HashSet<>();
+    	}
+    	
+    	Set<String> key = new HashSet<>(libraryResourceIds);
+    	key.add(channelId);
+    	key.add(scriptId);
+    	
+    	return key;
+    }
+
+    @Override
     public void reloadResource(String resourceId) throws Exception {
         reloadResources(new HashSet<String>(Collections.singleton(resourceId)), false);
     }
@@ -221,12 +265,24 @@ public class DefaultContextFactoryController extends ContextFactoryController {
 
         if (CollectionUtils.isNotEmpty(libraries)) {
             // Only create a new context factory if libraries are being used
-            contextFactory = new MirthContextFactory(libraries.toArray(new URL[libraries.size()]), libraryResourceIds);
+            contextFactory = new MirthContextFactory(libraries.toArray(new URL[libraries.size()]), libraryResourceIds, loadParentFirst(libraryResourceIds));
         } else {
             contextFactory = getGlobalContextFactory();
         }
 
         contextFactoryMap.put(libraryResourceIds, contextFactory);
+    }
+
+    private boolean loadParentFirst(Set<String> libraryResourceIds) {
+        if (CollectionUtils.isNotEmpty(libraryResourceIds)) {
+            for (String resourceId : libraryResourceIds) {
+                LibraryProperties resourceProperties = libraryResources.get(resourceId);
+                if (resourceProperties != null && resourceProperties.isLoadParentFirst()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private void redactResourceIds(Set<String> libraryResourceIds) {

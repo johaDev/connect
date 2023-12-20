@@ -24,14 +24,16 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Executors;
 
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration2.PropertiesConfiguration;
 import org.apache.commons.dbutils.DbUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.math3.util.Precision;
 import org.apache.ibatis.session.SqlSession;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
+import com.mirth.connect.client.core.PropertiesConfigurationUtil;
 import com.mirth.connect.connectors.TestAutoResponder;
 import com.mirth.connect.connectors.TestDestinationConnector;
 import com.mirth.connect.connectors.TestResponseTransformer;
@@ -49,6 +51,7 @@ import com.mirth.connect.donkey.model.message.RawMessage;
 import com.mirth.connect.donkey.model.message.Status;
 import com.mirth.connect.donkey.server.Donkey;
 import com.mirth.connect.donkey.server.channel.Channel;
+import com.mirth.connect.donkey.model.channel.DebugOptions;
 import com.mirth.connect.donkey.server.channel.DestinationChainProvider;
 import com.mirth.connect.donkey.server.channel.DestinationConnector;
 import com.mirth.connect.donkey.server.channel.DispatchResult;
@@ -84,7 +87,7 @@ public class TestUtils {
     final public static String CHANNEL_ID = "newtestchannel";
     final public static String SERVER_ID = "testserver";
 
-    private static Logger logger = Logger.getLogger(TestUtils.class);
+    private static Logger logger = LogManager.getLogger(TestUtils.class);
 
     public static void startMirthServer() throws InterruptedException {
         startMirthServer(1000);
@@ -292,10 +295,10 @@ public class TestUtils {
     }
 
     public static void deployTestChannel(com.mirth.connect.model.Channel channel) throws Exception {
-        com.mirth.connect.server.controllers.ChannelController.getInstance().updateChannel(channel, ServerEventContext.SYSTEM_USER_EVENT_CONTEXT, true);
+        com.mirth.connect.server.controllers.ChannelController.getInstance().updateChannel(channel, ServerEventContext.SYSTEM_USER_EVENT_CONTEXT, true, null);
         Set<String> channelIds = new LinkedHashSet<String>();
         channelIds.add(channel.getId());
-        ControllerFactory.getFactory().createEngineController().deployChannels(channelIds, ServerEventContext.SYSTEM_USER_EVENT_CONTEXT, null);
+        ControllerFactory.getFactory().createEngineController().deployChannels(channelIds, ServerEventContext.SYSTEM_USER_EVENT_CONTEXT, null, new DebugOptions());
     }
 
     public static Properties getSqlProperties() {
@@ -303,8 +306,7 @@ public class TestUtils {
 
         try {
             InputStream is = ResourceUtil.getResourceStream(SqlSession.class, "mirth.properties");
-            mirthProperties.setDelimiterParsingDisabled(true);
-            mirthProperties.load(is);
+            mirthProperties = PropertiesConfigurationUtil.create(is);
             IOUtils.closeQuietly(is);
         } catch (Exception e) {
             e.printStackTrace();

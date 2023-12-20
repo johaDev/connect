@@ -11,10 +11,15 @@ package com.mirth.connect.client.ui;
 
 import java.awt.Color;
 import java.awt.Cursor;
+import java.awt.Image;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.prefs.Preferences;
 
 import javax.swing.ImageIcon;
 import javax.swing.SwingWorker;
@@ -26,10 +31,11 @@ import com.mirth.connect.client.core.Client;
 import com.mirth.connect.client.core.ClientException;
 import com.mirth.connect.client.core.ConnectServiceUtil;
 import com.mirth.connect.client.core.UnauthorizedException;
+import com.mirth.connect.client.core.api.servlets.UserServletInterface;
 import com.mirth.connect.client.ui.util.DisplayUtil;
 import com.mirth.connect.model.ExtendedLoginStatus;
 import com.mirth.connect.model.LoginStatus;
-import com.mirth.connect.model.ServerSettings;
+import com.mirth.connect.model.PublicServerSettings;
 import com.mirth.connect.model.User;
 import com.mirth.connect.model.converters.ObjectXMLSerializer;
 import com.mirth.connect.plugins.MultiFactorAuthenticationClientPlugin;
@@ -47,9 +53,13 @@ public class LoginPanel extends javax.swing.JFrame {
         jLabel2.setForeground(UIConstants.HEADER_TITLE_TEXT_COLOR);
         jLabel5.setForeground(UIConstants.HEADER_TITLE_TEXT_COLOR);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setIconImage(new ImageIcon(com.mirth.connect.client.ui.Frame.class.getResource("images/mirth_32_ico.png")).getImage());
-
-        mirthCorpImage.setIcon(UIConstants.MIRTHCORP_LOGO);
+        setIconImage(UIConstants.MIRTH_FAVICON.getImage());
+        ImageIcon imageIcon = UIConstants.MIRTHCORP_LOGO; // load the image to a imageIcon
+        Image image = imageIcon.getImage(); // transform it
+        Image newimg = image.getScaledInstance(175, 30, java.awt.Image.SCALE_SMOOTH); // scale it the smooth way 
+        imageIcon = new ImageIcon(newimg);
+        
+        mirthCorpImage.setIcon(imageIcon);
         mirthCorpImage.setText("");
         mirthCorpImage.setToolTipText(UIConstants.MIRTHCORP_TOOLTIP);
         mirthCorpImage.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -61,7 +71,7 @@ public class LoginPanel extends javax.swing.JFrame {
             }
         });
 
-        mirthCorpImage1.setIcon(UIConstants.MIRTHCORP_LOGO);
+        mirthCorpImage1.setIcon(imageIcon);
         mirthCorpImage1.setText("");
         mirthCorpImage1.setToolTipText(UIConstants.MIRTHCORP_TOOLTIP);
         mirthCorpImage1.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -84,7 +94,6 @@ public class LoginPanel extends javax.swing.JFrame {
             if (instance == null) {
                 instance = new LoginPanel();
             }
-
             return instance;
         }
     }
@@ -99,6 +108,7 @@ public class LoginPanel extends javax.swing.JFrame {
             PlatformUI.CLIENT_VERSION = version;
 
             setTitle("Mirth Connect " + version + " - Login");
+            setIconImage(UIConstants.MIRTH_FAVICON.getImage());
 
             serverName.setText(mirthServer);
 
@@ -162,6 +172,7 @@ public class LoginPanel extends javax.swing.JFrame {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("Mirth Connect - Login");
+        setIconImage(UIConstants.MIRTH_FAVICON.getImage());
 
         loginMain.setBackground(new java.awt.Color(255, 255, 255));
         loginMain.setName(""); // NOI18N
@@ -426,7 +437,9 @@ public class LoginPanel extends javax.swing.JFrame {
                     // Attempt to login
                     LoginStatus loginStatus = null;
                     try {
-                        loginStatus = client.login(username.getText(), String.valueOf(password.getPassword()));
+                        Map<String, List<String>> customHeaders = new HashMap<String, List<String>>();
+                        customHeaders.put(UserServletInterface.LOGIN_SERVER_URL_HEADER, Collections.singletonList(PlatformUI.SERVER_URL));
+                        loginStatus = client.getServlet(UserServletInterface.class, null, customHeaders).login(username.getText(), String.valueOf(password.getPassword()));
                     } catch (ClientException ex) {
                         ex.printStackTrace();
 
@@ -442,7 +455,10 @@ public class LoginPanel extends javax.swing.JFrame {
 
                     // If SUCCESS or SUCCESS_GRACE_PERIOD
                     if ((loginStatus != null) && ((loginStatus.getStatus() == LoginStatus.Status.SUCCESS) || (loginStatus.getStatus() == LoginStatus.Status.SUCCESS_GRACE_PERIOD))) {
-                        handleSuccess(loginStatus);
+                        if (!handleSuccess(loginStatus)) {
+                            LoginPanel.getInstance().setVisible(false);
+                            LoginPanel.getInstance().initialize(PlatformUI.SERVER_URL, PlatformUI.CLIENT_VERSION, "", "");
+                        }
                     } else {
                         // Assume failure unless overridden by a plugin
                         errorOccurred = true;
@@ -458,7 +474,10 @@ public class LoginPanel extends javax.swing.JFrame {
 
                                 if ((loginStatus != null) && ((loginStatus.getStatus() == LoginStatus.Status.SUCCESS) || (loginStatus.getStatus() == LoginStatus.Status.SUCCESS_GRACE_PERIOD))) {
                                     errorOccurred = false;
-                                    handleSuccess(loginStatus);
+                                    if (!handleSuccess(loginStatus)) {
+                                        LoginPanel.getInstance().setVisible(false);
+                                        LoginPanel.getInstance().initialize(PlatformUI.SERVER_URL, PlatformUI.CLIENT_VERSION, "", "");
+                                    }
                                 }
                             }
                         }
@@ -488,23 +507,35 @@ public class LoginPanel extends javax.swing.JFrame {
                 return null;
             }
 
-            private void handleSuccess(LoginStatus loginStatus) throws ClientException {
+            private boolean handleSuccess(LoginStatus loginStatus) throws ClientException {
                 try {
-                    ServerSettings serverSettings = client.getServerSettings();
-
-                    String environmentName = serverSettings.getEnvironmentName();
+                    PublicServerSettings publicServerSettings = client.getPublicServerSettings();
+                    
+                    if (publicServerSettings.getLoginNotificationEnabled() == true) {
+                    	CustomBannerPanelDialog customBannerPanelDialog = new CustomBannerPanelDialog(LoginPanel.getInstance(), "Login Notification", publicServerSettings.getLoginNotificationMessage());
+                    	boolean isAccepted = customBannerPanelDialog.isAccepted();
+                    	
+                    	if (isAccepted == true) {
+                    	    client.setUserNotificationAcknowledged(client.getCurrentUser().getId());
+                    	}
+                    	else {
+                    	    return false;
+                    	}
+                    }
+                    
+                    String environmentName = publicServerSettings.getEnvironmentName();
                     if (!StringUtils.isBlank(environmentName)) {
                         PlatformUI.ENVIRONMENT_NAME = environmentName;
                     }
 
-                    String serverName = serverSettings.getServerName();
+                    String serverName = publicServerSettings.getServerName();
                     if (!StringUtils.isBlank(serverName)) {
                         PlatformUI.SERVER_NAME = serverName;
                     } else {
                         PlatformUI.SERVER_NAME = null;
                     }
 
-                    Color defaultBackgroundColor = serverSettings.getDefaultAdministratorBackgroundColor();
+                    Color defaultBackgroundColor = publicServerSettings.getDefaultAdministratorBackgroundColor();
                     if (defaultBackgroundColor != null) {
                         PlatformUI.DEFAULT_BACKGROUND_COLOR = defaultBackgroundColor;
                     }
@@ -551,7 +582,32 @@ public class LoginPanel extends javax.swing.JFrame {
                     // Display registration dialog if it's the user's first time logging in
                     String firstlogin = userPreferences.getProperty("firstlogin");
                     if (firstlogin == null || BooleanUtils.toBoolean(firstlogin)) {
-                        new FirstLoginDialog(currentUser);
+                    	if (Integer.valueOf(currentUser.getId()) == 1) {
+                        	// if current user is user 1:
+                    		// 	1. check system preferences for user information
+                    		// 	2. if system preferences exist, populate screen using currentUser
+                        	Preferences preferences = Preferences.userNodeForPackage(Mirth.class);
+    						String systemUserInfo = preferences.get("userLoginInfo", null);
+    						if (systemUserInfo != null) {
+                        		String info[] = systemUserInfo.split(",", 0);
+                                currentUser.setUsername(info[0]); 
+                            	currentUser.setFirstName(info[1]);
+                            	currentUser.setLastName(info[2]);
+                            	currentUser.setEmail(info[3]);
+                            	currentUser.setCountry(info[4]);
+                            	currentUser.setStateTerritory(info[5]);
+                            	currentUser.setPhoneNumber(info[6]);
+                            	currentUser.setOrganization(info[7]);
+                            	currentUser.setRole(info[8]);
+                            	currentUser.setIndustry(info[9]);
+                            	currentUser.setDescription(info[10]);
+                        	}
+                    	}
+                        FirstLoginDialog firstLoginDialog = new FirstLoginDialog(currentUser);
+                        // if leaving the first login dialog without saving
+                        if (!firstLoginDialog.getResult()) {
+                        	return false;
+                        }
                     } else if (loginStatus.getStatus() == LoginStatus.Status.SUCCESS_GRACE_PERIOD) {
                         new ChangePasswordDialog(currentUser, loginStatus.getMessage());
                     }
@@ -581,6 +637,8 @@ public class LoginPanel extends javax.swing.JFrame {
                 }
 
                 PlatformUI.MIRTH_FRAME.sendUsageStatistics();
+                
+                return true;
             }
 
             public void done() {}

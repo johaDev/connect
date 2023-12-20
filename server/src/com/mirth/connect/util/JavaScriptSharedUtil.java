@@ -9,6 +9,7 @@
 
 package com.mirth.connect.util;
 
+import java.io.InputStream;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -20,10 +21,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.mozilla.javascript.CompilerEnvirons;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.EvaluatorException;
@@ -45,6 +47,8 @@ import org.mozilla.javascript.ast.XmlElemRef;
 import org.mozilla.javascript.ast.XmlMemberGet;
 import org.mozilla.javascript.ast.XmlPropRef;
 
+import com.mirth.connect.server.util.ResourceUtil;
+
 public class JavaScriptSharedUtil {
 
     private final static Pattern RESULT_PATTERN = Pattern.compile("responseMap\\s*\\.\\s*put\\s*\\(\\s*(['\"])(((?!(?<!\\\\)\\1).)*)(?<!\\\\)\\1|\\$r\\s*\\(\\s*(['\"])(((?!(?<!\\\\)\\4).)*)(?<!\\\\)\\4(?=\\s*,)");
@@ -54,7 +58,7 @@ public class JavaScriptSharedUtil {
     private final static int SHORT_NAME_MATCHER_INDEX = 5;
     private static volatile ScriptableObject cachedFormatterScope;
     private static int rhinoLanguageVersion = Context.VERSION_DEFAULT;
-    private static Logger logger = Logger.getLogger(JavaScriptSharedUtil.class);
+    private static Logger logger = LogManager.getLogger(JavaScriptSharedUtil.class);
 
     public static void setRhinoLanguageVersion(int version) {
         try {
@@ -191,8 +195,11 @@ public class JavaScriptSharedUtil {
 
     private static ScriptableObject getFormatterScope() {
         Context context = getGlobalContextForValidation();
+        InputStream is = null;
+        
         try {
-            String script = IOUtils.toString(JavaScriptSharedUtil.class.getResourceAsStream("beautify-1.6.8.js"));
+            is = JavaScriptSharedUtil.class.getResourceAsStream("beautify-1.6.8.js");
+            String script = IOUtils.toString(is);
             ScriptableObject scope = context.initStandardObjects();
             context.evaluateString(scope, "var global = {};", UUID.randomUUID().toString(), 1, null);
             context.evaluateString(scope, script, UUID.randomUUID().toString(), 1, null);
@@ -202,6 +209,7 @@ public class JavaScriptSharedUtil {
             logger.error("Failed to load beautify library.");
             return null;
         } finally {
+            ResourceUtil.closeResourceQuietly(is);
             Context.exit();
         }
     }

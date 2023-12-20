@@ -27,6 +27,7 @@ import javax.swing.event.ListSelectionListener;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableColumn;
+import javax.swing.table.TableModel;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jdesktop.swingx.decorator.HighlighterFactory;
@@ -230,9 +231,17 @@ public class MessageBrowserAdvancedFilter extends MirthDialog {
     }
 
     public void loadChannel() {
-        connectorTable.setModel(new ItemSelectionTableModel<Integer, String>(messageBrowser.getConnectors(), null, "Current Connector Name", "Included", "Id"));
+        connectorTable.setModel(createConnectorTableModel());
 
         initMetaDataSearchTable();
+    }
+    
+    protected TableModel createConnectorTableModel() {
+    	return new ItemSelectionTableModel<Integer, String>(messageBrowser.getConnectors(), null, "Current Connector Name", "Included", "Id");
+    }
+    
+    protected TableModel getConnectorTableModel() {
+    	return connectorTable.getModel();
     }
 
     public void setSelectedMetaDataIds(List<Integer> selectedMetaDataIds) {
@@ -245,7 +254,7 @@ public class MessageBrowserAdvancedFilter extends MirthDialog {
         }
     }
 
-    protected void applySelectionsToFilter(MessageFilter messageFilter) {
+    public void applySelectionsToFilter(MessageFilter messageFilter) {
         List<Integer> selectedMetaDataIds = getMetaDataIds(true);
 
         // Included and Excluded metadata Ids will both be null if everything is selected.
@@ -306,7 +315,8 @@ public class MessageBrowserAdvancedFilter extends MirthDialog {
         messageFilter.setError(errorCheckBox.isSelected());
         messageFilter.setSendAttemptsLower(sendAttemptsLower);
         messageFilter.setSendAttemptsUpper(sendAttemptsUpper);
-        messageFilter.setContentSearch(getContentSearch());
+        List<ContentSearchElement> contentSearch = getContentSearch();
+        messageFilter.setContentSearch(contentSearch.isEmpty() ? null : contentSearch);
 
         try {
             messageFilter.setMetaDataSearch(getMetaDataSearch());

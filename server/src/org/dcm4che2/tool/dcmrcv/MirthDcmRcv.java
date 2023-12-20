@@ -10,7 +10,8 @@ import java.util.Map;
 
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.io.IOUtils;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.dcm4che2.data.BasicDicomObject;
 import org.dcm4che2.data.DicomObject;
 import org.dcm4che2.data.Tag;
@@ -25,12 +26,12 @@ import org.dcm4che2.net.pdu.UserIdentityRQ;
 
 import com.mirth.connect.connectors.dimse.DICOMConfiguration;
 import com.mirth.connect.donkey.model.message.RawMessage;
-import com.mirth.connect.donkey.server.channel.ChannelException;
+import com.mirth.connect.donkey.model.message.Status;
 import com.mirth.connect.donkey.server.channel.DispatchResult;
 import com.mirth.connect.donkey.server.channel.SourceConnector;
 
 public class MirthDcmRcv extends DcmRcv {
-    private Logger logger = Logger.getLogger(this.getClass());
+    private Logger logger = LogManager.getLogger(this.getClass());
     private SourceConnector sourceConnector;
     private DICOMConfiguration dicomConfiguration;
 
@@ -156,12 +157,21 @@ public class MirthDcmRcv extends DcmRcv {
 
             try {
                 dispatchResult = sourceConnector.dispatchRawMessage(new RawMessage(dicomMessage, null, sourceMap));
+
+                // If a response is selected and the status is ERROR, propagate that failure and status message back to the client
+                if (dispatchResult != null && dispatchResult.getSelectedResponse() != null && dispatchResult.getSelectedResponse().getStatus() == Status.ERROR) {
+                    throw new DicomServiceException(rq, org.dcm4che2.net.Status.ProcessingFailure, dispatchResult.getSelectedResponse().getStatusMessage());
+                }
             } finally {
                 sourceConnector.finishDispatch(dispatchResult);
             }
-        } catch (ChannelException e) {
-        } catch (Exception e) {
-            logger.error(e);
+        } catch (Throwable t) {
+        	logger.error("Error receiving DICOM message on channel " + sourceConnector.getChannelId(), t);
+            if (t instanceof DicomServiceException) {
+                throw (DicomServiceException) t;
+            } else {
+                throw new DicomServiceException(rq, org.dcm4che2.net.Status.ProcessingFailure, "Error processing DICOM message: " + t.getMessage());
+            }
         } finally {
             Thread.currentThread().setName(originalThreadName);
             // Let the dispose take care of closing the socket

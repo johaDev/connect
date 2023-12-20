@@ -24,11 +24,13 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.MapUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionManager;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.mirth.commons.encryption.Encryptor;
 import com.mirth.connect.client.core.ControllerException;
@@ -94,7 +96,7 @@ public class DonkeyMessageController extends MessageController {
     }
 
     private Donkey donkey = Donkey.getInstance();
-    private Logger logger = Logger.getLogger(this.getClass());
+    private Logger logger = LogManager.getLogger(this.getClass());
 
     private DonkeyMessageController() {}
 
@@ -188,6 +190,11 @@ public class DonkeyMessageController extends MessageController {
 
     @Override
     public List<Message> getMessages(MessageFilter filter, String channelId, Boolean includeContent, Integer offset, Integer limit) {
+        // Provide a default value if any of the below 3 parameters are null.
+        includeContent = includeContent == null ? false : includeContent;
+        offset = offset == null ? 0 : offset;
+        limit = limit == null ? 20 : limit;
+        
         List<Message> messages = new ArrayList<Message>();
 
         if (filter.getIncludedMetaDataIds() != null && filter.getIncludedMetaDataIds().isEmpty() && filter.getExcludedMetaDataIds() == null) {
@@ -405,12 +412,19 @@ public class DonkeyMessageController extends MessageController {
                     connectorMessage.setMetaDataId(0);
                     connectorMessage.setRaw(rawContent);
 
+                    Map<String, Attachment> remainingAttachments = new HashMap<String, Attachment>();
+
                     RawMessage rawMessage = null;
 
                     if (isBinary) {
                         rawMessage = new RawMessage(DICOMMessageUtil.getDICOMRawBytes(connectorMessage));
                     } else {
-                        rawMessage = new RawMessage(org.apache.commons.codec.binary.StringUtils.newString(attachmentHandlerProvider.reAttachMessage(rawContent.getContent(), connectorMessage, Constants.ATTACHMENT_CHARSET, false, true, true), Constants.ATTACHMENT_CHARSET));
+                        rawMessage = new RawMessage(org.apache.commons.codec.binary.StringUtils.newString(attachmentHandlerProvider.reAttachMessage(rawContent.getContent(), connectorMessage, Constants.ATTACHMENT_CHARSET, false, true, true, remainingAttachments), Constants.ATTACHMENT_CHARSET));
+                    }
+
+                    // If there are any attachments that were not reattached into the raw data, then include them here
+                    if (MapUtils.isNotEmpty(remainingAttachments)) {
+                        rawMessage.setAttachments(new ArrayList<Attachment>(remainingAttachments.values()));
                     }
 
                     rawMessage.setOverwrite(replace);
@@ -491,7 +505,7 @@ public class DonkeyMessageController extends MessageController {
             }
 
             try {
-                int numExported = new MessageExporter().exportMessages(messageList, messageWriter, attachmentSource);
+                int numExported = new MessageExporter().exportMessages(messageList, messageWriter, attachmentSource, options); 
                 messageWriter.finishWrite();
                 return numExported;
             } finally {

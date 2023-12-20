@@ -25,8 +25,9 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.log4j.Logger;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.fife.rsta.ac.LanguageSupportFactory;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.reflections.Reflections;
@@ -62,7 +63,7 @@ public class ReferenceListFactory {
 
     private static ReferenceListFactory instance = null;
 
-    private Logger logger = Logger.getLogger(getClass());
+    private Logger logger = LogManager.getLogger(getClass());
     private Map<Type, List<Reference>> cache = new HashMap<Type, List<Reference>>();
     private Map<Type, List<Reference>> userCache = new HashMap<Type, List<Reference>>();
     private Map<String, List<CodeTemplate>> codeTemplateMap = new TreeMap<String, List<CodeTemplate>>(new CategoryComparator());
@@ -302,11 +303,13 @@ public class ReferenceListFactory {
         addReference(new ParameterizedCodeReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "Perform Parameterized Database Update", "Performs a database update with a (Java) list of parameters.", "var ${dbConn};\nvar ${result};\n\ntry {\n\t${dbConn} = DatabaseConnectionFactory.createDatabaseConnection('${driver}', '${address}', '${username}', '${password}');\n\t${result} = ${dbConn}.executeUpdate('${expression}', ${paramList});\n} finally {\n\tif (${dbConn}) {\n\t\t${dbConn}.close();\n\t}\n}"));
         addReference(new VariableReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "Postgres Connection Template", "String template for Postgres database connection.", "\"jdbc:postgresql://host:port/dbname\""));
         addReference(new VariableReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "MySQL Connection Template", "String template for MySQL database connection.", "\"jdbc:mysql://host:port/dbname\""));
-        addReference(new VariableReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "SQL Server Connection Template", "String template for SQL Server database connection.", "\"jdbc:jtds:sqlserver://host:port/dbname\""));
+        addReference(new VariableReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "SQL Server/Sybase (jTDS) Connection Template", "String template for SQL Server/Sybase (jTDS) database connection.", "\"jdbc:jtds:sqlserver://host:port/dbname\""));
+        addReference(new VariableReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "Microsoft SQL Server Connection Template", "String template for Microsoft SQL Server database connection.", "\"jdbc:sqlserver://host:port;databaseName=dbname\""));
         addReference(new VariableReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "Oracle Connection Template", "String template for Oracle database connection.", "\"jdbc:oracle:thin:@host:port:dbname\""));
         addReference(new VariableReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "Postgres Driver", "String used for Postgres database driver.", "\"org.postgresql.Driver\""));
         addReference(new VariableReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "MySQL Driver", "String used for MySQL database driver.", "\"com.mysql.cj.jdbc.Driver\""));
-        addReference(new VariableReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "SQL Server Driver", "String used for SQL Server database driver.", "\"net.sourceforge.jtds.jdbc.Driver\""));
+        addReference(new VariableReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "SQL Server/Sybase (jTDS) Driver", "String used for SQL Server/Sybase (jTDS) database driver.", "\"net.sourceforge.jtds.jdbc.Driver\""));
+        addReference(new VariableReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "Microsoft SQL Server Driver", "String used for Microsoft SQL Server database driver.", "\"com.microsoft.sqlserver.jdbc.SQLServerDriver\""));
         addReference(new VariableReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "Oracle Driver", "String used for Oracle database driver.", "\"oracle.jdbc.OracleDriver\""));
         addReference(new ParameterizedCodeReference(CONTEXT_GLOBAL, Category.DATABASE.toString(), "Initialize Driver", "Initialize the specified JDBC driver. (Same as calling Class.forName)", "DatabaseConnectionFactory.initializeDriver('${driver}');"));
 
@@ -402,7 +405,10 @@ public class ReferenceListFactory {
         addReference(new ParameterizedCodeReference(CONTEXT_GLOBAL, Category.UTILITY.toString(), "Remove Illegal XML Characters", "Removes illegal XML characters like control characters that cause a parsing error in e4x (\\x00-\\x1F besides TAB, LF, and CR)", "var ${newMessage} = ${message}.replace(/[\\x00-\\x08]|[\\x0B-\\x0C]|[\\x0E-\\x1F]/g, '');\n"));
         addReference(new ParameterizedCodeReference(CONTEXT_GLOBAL, Category.UTILITY.toString(), "Pretty Print XML", "Formats an XML string with indented markup.", "XmlUtil.prettyPrint(${xmlString})"));
         addReference(new ParameterizedCodeReference(CONTEXT_GLOBAL, Category.UTILITY.toString(), "Pretty Print JSON", "Formats an JSON string with indented markup.", "JsonUtil.prettyPrint(${jsonString})"));
-
+        addReference(new ParameterizedCodeReference(CONTEXT_GLOBAL, Category.UTILITY.toString(), "Generate Hash (Object)", "Returns the hash of the passed in Object", "var ${hash} = HashUtil.generate(${object});"));
+        addReference(new ParameterizedCodeReference(CONTEXT_GLOBAL, Category.UTILITY.toString(), "Generate Hash (String)", "Returns the hash of the passed in String", "var ${hash} = HashUtil.generate(${string}, ${encoding}, ${algorithm});"));
+        addReference(new ParameterizedCodeReference(CONTEXT_GLOBAL, Category.UTILITY.toString(), "Generate Hash (byte[])", "Returns the hash of the passed in byte[]", "var ${hash} = HashUtil.generate(${byte[]}, ${algorithm});"));
+        
         // Conversion references
         addReference(new ParameterizedCodeReference(CONTEXT_GLOBAL, Category.CONVERSION.toString(), "Convert XML to JSON", "Converts an XML string to JSON.", "XmlUtil.toJson(${xmlString})"));
         addReference(new ParameterizedCodeReference(CONTEXT_GLOBAL, Category.CONVERSION.toString(), "Convert JSON to XML", "Converts a JSON string to XML.", "JsonUtil.toXml(${jsonString})"));

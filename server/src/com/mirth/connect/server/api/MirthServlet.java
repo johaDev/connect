@@ -172,7 +172,7 @@ public abstract class MirthServlet {
                         try {
                             int status = configurationController.getStatus(false);
                             if (status == ConfigurationController.STATUS_INITIAL_DEPLOY || status == ConfigurationController.STATUS_OK) {
-                                LoginStatus loginStatus = userController.authorizeUser(username, password);
+                                LoginStatus loginStatus = userController.authorizeUser(username, password, null);
 
                                 if ((loginStatus.getStatus() == LoginStatus.Status.SUCCESS) || (loginStatus.getStatus() == LoginStatus.Status.SUCCESS_GRACE_PERIOD)) {
                                     User user = userController.getUser(null, username);
@@ -240,6 +240,10 @@ public abstract class MirthServlet {
     }
 
     public void checkUserAuthorized(Integer userId, boolean auditCurrentUser) {
+        // At first glance this logic looks unnecessary, but it is important to note
+        // isUserAuthorized() will trigger an audit, so having it first in
+        // the conditional means it will always trigger the audit whereas
+        // after the '&&' it will only trigger if the first condition succeeds.
         if (auditCurrentUser) {
             if (!isUserAuthorized() && !isCurrentUser(userId)) {
                 throw new MirthApiException(Status.FORBIDDEN);
@@ -428,7 +432,7 @@ public abstract class MirthServlet {
     private void initChannelRestrictions() {
         if (!channelRestrictionsInitialized) {
             try {
-                userHasChannelRestrictions = authorizationController.doesUserHaveChannelRestrictions(currentUserId, operation);
+                userHasChannelRestrictions = !bypassUser && authorizationController.doesUserHaveChannelRestrictions(currentUserId, operation);
 
                 if (userHasChannelRestrictions) {
                     channelAuthorizer = authorizationController.getChannelAuthorizer(currentUserId, operation);
@@ -445,8 +449,9 @@ public abstract class MirthServlet {
         return userId == getCurrentUserId();
     }
 
-    private boolean isRequestLocal() {
-        String remoteAddr = request.getRemoteAddr();
+    protected boolean isRequestLocal() {
+    	// The remote address can be surrounded in square brackets, and we need to remove them before making comparisons.
+        String remoteAddr = request.getRemoteAddr().replace("[", "").replace("]", "");
 
         try {
             if (StringUtils.equals(InetAddress.getLocalHost().getHostAddress(), remoteAddr)) {

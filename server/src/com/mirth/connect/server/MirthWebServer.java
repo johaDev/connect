@@ -15,6 +15,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.annotation.Annotation;
+import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -36,7 +37,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.ext.Provider;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration2.PropertiesConfiguration;
 import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -47,8 +48,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.http.entity.ContentType;
 import org.apache.http.protocol.HTTP;
 import org.apache.ibatis.session.SqlSessionManager;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.http.MimeTypes;
@@ -101,9 +104,12 @@ import com.mirth.connect.model.MetaData;
 import com.mirth.connect.server.api.MirthServlet;
 import com.mirth.connect.server.api.providers.ApiOriginFilter;
 import com.mirth.connect.server.api.providers.ClickjackingFilter;
+import com.mirth.connect.server.api.providers.RequestedWithFilter;
+import com.mirth.connect.server.api.providers.StrictTransportSecurityFilter;
 import com.mirth.connect.server.controllers.ConfigurationController;
 import com.mirth.connect.server.controllers.ControllerFactory;
 import com.mirth.connect.server.controllers.ExtensionController;
+import com.mirth.connect.server.servlets.SwaggerExamplesServlet;
 import com.mirth.connect.server.servlets.SwaggerServlet;
 import com.mirth.connect.server.servlets.WebStartServlet;
 import com.mirth.connect.server.tools.ClassPathResource;
@@ -111,12 +117,15 @@ import com.mirth.connect.server.util.PackagePredicate;
 import com.mirth.connect.server.util.SqlConfig;
 import com.mirth.connect.util.MirthSSLUtil;
 
+import io.swagger.v3.jaxrs2.integration.resources.AcceptHeaderOpenApiResource;
+import io.swagger.v3.jaxrs2.integration.resources.OpenApiResource;
+
 public class MirthWebServer extends Server {
 
     private static final String CONNECTOR = "connector";
     private static final String CONNECTOR_SSL = "sslconnector";
 
-    private Logger logger = Logger.getLogger(getClass());
+    private Logger logger = LogManager.getLogger(getClass());
     private ConfigurationController configurationController = ControllerFactory.getFactory().createConfigurationController();
     private ExtensionController extensionController = ControllerFactory.getFactory().createExtensionController();
     private List<WebAppContext> webapps;
@@ -125,12 +134,13 @@ public class MirthWebServer extends Server {
     private ServerConnector sslConnector;
 
     public MirthWebServer(PropertiesConfiguration mirthProperties) throws Exception {
-        // this disables a "form too large" error for occuring by setting
+        // this disables a "form too large" error for occurring by setting
         // form size to infinite
-        System.setProperty("org.eclipse.jetty.server.Request.maxFormContentSize", "0");
+        System.setProperty("org.eclipse.jetty.server.Request.maxFormContentSize", "-1");
 
         // Suppress logging from the WADL generator for OPTIONS requests 
-        Logger.getLogger(WadlGeneratorJAXBGrammarGenerator.class).setLevel(Level.OFF);
+        Logger logger2 = LogManager.getLogger(WadlGeneratorJAXBGrammarGenerator.class);
+        Configurator.setLevel(logger2.getName(), Level.OFF);
 
         String baseAPI = "/api";
 
@@ -140,7 +150,10 @@ public class MirthWebServer extends Server {
 
         if (usingHttp) {
             // add HTTP listener
-            connector = new ServerConnector(this);
+            HttpConfiguration config = new HttpConfiguration();
+            config.setSendServerVersion(false);
+            config.setSendXPoweredBy(false);
+            connector = new ServerConnector(this, new HttpConnectionFactory(config));
             connector.setName(CONNECTOR);
             connector.setHost(mirthProperties.getString("http.host", "0.0.0.0"));
             connector.setPort(mirthProperties.getInt("http.port"));
@@ -197,7 +210,7 @@ public class MirthWebServer extends Server {
         String clientLibPath = null;
 
         if (ClassPathResource.getResourceURI("client-lib") != null) {
-            clientLibPath = ClassPathResource.getResourceURI("client-lib").getPath() + File.separator;
+            clientLibPath = Paths.get(ClassPathResource.getResourceURI("client-lib")).toString() + File.separator;
         } else {
             clientLibPath = ControllerFactory.getFactory().createConfigurationController().getBaseDir() + File.separator + "client-lib" + File.separator;
         }
@@ -292,9 +305,10 @@ public class MirthWebServer extends Server {
                 // Set the session cache directly on the handler so it doesn't use the server bean
                 sessionHandler.setSessionCache(sessionCache);
                 webapp.setSessionHandler(sessionHandler);
-
+                
                 webapp.setContextPath(contextPath + "/" + file.getName().substring(0, file.getName().length() - 4));
                 webapp.addFilter(new FilterHolder(new ClickjackingFilter(mirthProperties)), "/*", EnumSet.of(DispatcherType.REQUEST));
+                webapp.addFilter(new FilterHolder(new StrictTransportSecurityFilter(mirthProperties)), "/*", EnumSet.of(DispatcherType.REQUEST));
 
                 /*
                  * Set the ContainerIncludeJarPattern so that Jetty examines these JARs for TLDs,
@@ -312,7 +326,9 @@ public class MirthWebServer extends Server {
         }
 
         // TODO: Fully support backward compatibility for models before exposing earlier servlets
-        addApiServlets(handlers, contextPath, baseAPI, apiAllowHTTP, Version.getLatest(), mirthProperties);
+        ServletContextHandler apiServletContextHandler = createApiServletContextHandler(contextPath, baseAPI, apiAllowHTTP, Version.getLatest(), mirthProperties);
+        
+        addApiServlets(handlers, apiServletContextHandler, contextPath, baseAPI, apiAllowHTTP, Version.getLatest(), mirthProperties);
         // Add Jersey API / swagger servlets for each specific version
 //        Version version = Version.getApiEarliest();
 //        while (version != null) {
@@ -320,7 +336,10 @@ public class MirthWebServer extends Server {
 //            version = version.getNextVersion();
 //        }
         // Add servlets for the main (default) API endpoint
-        addApiServlets(handlers, contextPath, baseAPI, apiAllowHTTP, null, mirthProperties);
+        apiServletContextHandler = createApiServletContextHandler(contextPath, baseAPI, apiAllowHTTP, null, mirthProperties);
+        addApiServlets(handlers, apiServletContextHandler, contextPath, baseAPI, apiAllowHTTP, null, mirthProperties);
+        
+        addSwaggerServlets(handlers, apiServletContextHandler, contextPath, baseAPI, apiAllowHTTP, null);
 
         // Create the webstart servlet handler
         ServletContextHandler servletContextHandler = new ServletContextHandler();
@@ -364,7 +383,7 @@ public class MirthWebServer extends Server {
     }
 
     private ServerConnector createSSLConnector(String name, PropertiesConfiguration mirthProperties) throws Exception {
-        KeyStore keyStore = KeyStore.getInstance("JCEKS");
+        KeyStore keyStore = KeyStore.getInstance(mirthProperties.getString("keystore.type", "JCEKS"));
         FileInputStream is = new FileInputStream(new File(mirthProperties.getString("keystore.path")));
         try {
             keyStore.load(is, mirthProperties.getString("keystore.storepass").toCharArray());
@@ -372,15 +391,18 @@ public class MirthWebServer extends Server {
             IOUtils.closeQuietly(is);
         }
 
-        SslContextFactory contextFactory = new SslContextFactory();
+        SslContextFactory contextFactory = new SslContextFactory.Server();
         contextFactory.setKeyStore(keyStore);
         contextFactory.setCertAlias("mirthconnect");
         contextFactory.setKeyManagerPassword(mirthProperties.getString("keystore.keypass"));
+        contextFactory.setEndpointIdentificationAlgorithm(null);
 
         HttpConfiguration config = new HttpConfiguration();
         config.setSecureScheme("https");
         config.setSecurePort(mirthProperties.getInt("https.port"));
         config.addCustomizer(new SecureRequestCustomizer());
+        config.setSendServerVersion(false);
+        config.setSendXPoweredBy(false);
 
         ServerConnector sslConnector = new ServerConnector(this, new SslConnectionFactory(contextFactory, HttpVersion.HTTP_1_1.asString()), new HttpConnectionFactory(config));
 
@@ -418,24 +440,35 @@ public class MirthWebServer extends Server {
         return sslConnector;
     }
 
-    private void addApiServlets(HandlerList handlers, String contextPath, String baseAPI, boolean apiAllowHTTP, Version version, PropertiesConfiguration mirthProperties) {
-        String apiPath = "";
+    private ServletContextHandler createApiServletContextHandler(String contextPath, String baseAPI, boolean apiAllowHTTP, Version version, PropertiesConfiguration mirthProperties) {
+    	String apiPath = "";
         Version apiVersion = version;
         if (apiVersion != null) {
             apiPath += "/" + apiVersion.toString();
-        } else {
-            apiVersion = Version.getLatest();
         }
-
+    	
         // Create the servlet handler for the API
-        ServletContextHandler apiServletContextHandler = new ServletContextHandler();
+    	ServletContextHandler apiServletContextHandler = new ServletContextHandler();
         apiServletContextHandler.setMaxFormContentSize(0);
         apiServletContextHandler.setSessionHandler(new SessionHandler());
         apiServletContextHandler.setContextPath(contextPath + baseAPI + apiPath);
         apiServletContextHandler.addFilter(new FilterHolder(new ApiOriginFilter(mirthProperties)), "/*", EnumSet.of(DispatcherType.REQUEST));
         apiServletContextHandler.addFilter(new FilterHolder(new ClickjackingFilter(mirthProperties)), "/*", EnumSet.of(DispatcherType.REQUEST));
+        apiServletContextHandler.addFilter(new FilterHolder(new RequestedWithFilter(mirthProperties)), "/*", EnumSet.of(DispatcherType.REQUEST));
         apiServletContextHandler.addFilter(new FilterHolder(new MethodFilter()), "/*", EnumSet.of(DispatcherType.REQUEST));
+        apiServletContextHandler.addFilter(new FilterHolder(new StrictTransportSecurityFilter(mirthProperties)), "/*", EnumSet.of(DispatcherType.REQUEST));
         setConnectorNames(apiServletContextHandler, apiAllowHTTP);
+    
+        
+        
+        return apiServletContextHandler;
+    }
+    
+    private void addApiServlets(HandlerList handlers, ServletContextHandler apiServletContextHandler, String contextPath, String baseAPI, boolean apiAllowHTTP, Version version, PropertiesConfiguration mirthProperties) {
+        Version apiVersion = version;
+        if (apiVersion == null) {
+        	apiVersion = Version.getLatest();
+        }
 
         ApiProviders apiProviders = getApiProviders(apiVersion);
 
@@ -445,16 +478,35 @@ public class MirthWebServer extends Server {
         jerseyVersionedServlet.setInitParameter(ServerProperties.PROVIDER_PACKAGES, StringUtils.join(apiProviders.providerPackages, ','));
         jerseyVersionedServlet.setInitParameter(ServerProperties.PROVIDER_CLASSNAMES, joinClasses(apiProviders.providerClasses));
 
-        // Add versioned Swagger bootstrap configuration servlet
-        ServletHolder swaggerVersionedServlet = new ServletHolder(new SwaggerServlet(contextPath + baseAPI + apiPath, version, apiVersion, apiProviders.servletInterfacePackages, apiProviders.servletInterfaces, apiAllowHTTP));
-        swaggerVersionedServlet.setInitOrder(2);
-        apiServletContextHandler.addServlet(swaggerVersionedServlet, contextPath + baseAPI + apiPath + "/swagger.json");
-        apiServletContextHandler.addServlet(swaggerVersionedServlet, contextPath + baseAPI + apiPath + "/swagger.yaml");
-
-        // Add Swagger UI web page servlet
-        handlers.addHandler(getSwaggerContextHandler(contextPath, baseAPI, apiAllowHTTP, version));
         // Add API handler
         handlers.addHandler(apiServletContextHandler);
+    }
+    
+    private void addSwaggerServlets(HandlerList handlers, ServletContextHandler apiServletContextHandler, String contextPath, String baseAPI, boolean apiAllowHTTP, PropertiesConfiguration mirthProperties) {
+    	String apiPath = "";
+        Version apiVersion = Version.getLatest();
+
+        ApiProviders apiProviders = getApiProviders(apiVersion);
+
+        // Add versioned Swagger bootstrap configuration servlet
+        ServletHolder swaggerVersionedServlet = new ServletHolder(new SwaggerServlet(contextPath + baseAPI + apiPath, null, apiVersion, apiProviders.servletInterfacePackages, apiProviders.servletInterfaces, apiAllowHTTP));
+        swaggerVersionedServlet.setInitOrder(2);
+        apiServletContextHandler.addServlet(swaggerVersionedServlet, contextPath + baseAPI + apiPath + "/openapi.json");
+        apiServletContextHandler.addServlet(swaggerVersionedServlet, contextPath + baseAPI + apiPath + "/openapi.yaml");
+
+        // Add Swagger UI web page servlet
+        handlers.addHandler(getSwaggerContextHandler(contextPath, baseAPI, apiAllowHTTP, null));
+        
+        // Add Swagger examples servlet
+        ServletContextHandler swaggerExamplesServletContextHandler = new ServletContextHandler();
+        swaggerExamplesServletContextHandler.setContextPath("/apiexamples");
+        ServletHolder swaggerExamplesServlet = new ServletHolder(new SwaggerExamplesServlet());
+        swaggerExamplesServlet.setInitOrder(3);
+        swaggerExamplesServletContextHandler.addServlet(swaggerExamplesServlet, "/*");
+        
+        // Add API handler
+        handlers.addHandler(apiServletContextHandler);
+        handlers.addHandler(swaggerExamplesServletContextHandler);
     }
 
     private ContextHandler getSwaggerContextHandler(String contextPath, String baseAPI, boolean apiAllowHTTP, Version version) {
@@ -488,7 +540,7 @@ public class MirthWebServer extends Server {
             this.providerClasses = providerClasses;
         }
     }
-
+    
     private ApiProviders getApiProviders(Version version) {
         // These contain only the shared servlet interfaces, and will be used to generate the Swagger models.
         Set<String> servletInterfacePackages = new LinkedHashSet<String>();
@@ -554,6 +606,8 @@ public class MirthWebServer extends Server {
         providerPackages.addAll(serverProviderPackages);
         providerClasses.addAll(coreProviderClasses);
         providerClasses.addAll(serverProviderClasses);
+        providerClasses.add(OpenApiResource.class);
+        providerClasses.add(AcceptHeaderOpenApiResource.class);
 
         return new ApiProviders(servletInterfacePackages, servletInterfaces, providerPackages, providerClasses);
     }

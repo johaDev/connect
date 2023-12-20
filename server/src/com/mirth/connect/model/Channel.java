@@ -189,6 +189,25 @@ public class Channel implements Serializable, Auditable, Migratable, Purgable, C
     public Channel cloneIfNeeded() {
         return this;
     }
+    
+    public Channel clone() {
+        // This does not do a deep copy of each object
+        Channel channel = new Channel();
+        channel.setId(id);
+        channel.setNextMetaDataId(nextMetaDataId);
+        channel.setName(name);
+        channel.setDescription(description);
+        channel.setRevision(revision);
+        channel.setSourceConnector(sourceConnector);
+        channel.getDestinationConnectors().addAll(destinationConnectors);
+        channel.setPreprocessingScript(preprocessingScript);
+        channel.setPostprocessingScript(postprocessingScript);
+        channel.setDeployScript(deployScript);
+        channel.setUndeployScript(undeployScript);
+        channel.properties = properties;
+        channel.setExportData(exportData);
+        return channel;
+    }
 
     public boolean equals(Object that) {
         if (this == that) {
@@ -338,7 +357,40 @@ public class Channel implements Serializable, Auditable, Migratable, Purgable, C
 
     @Override
     public void migrate3_7_0(DonkeyElement element) {}
+    
+    @Override
+    public void migrate3_9_0(DonkeyElement element) {}
+    
+    @Override
+    public void migrate3_11_0(DonkeyElement element) {}
+    
+    @Override
+    public void migrate3_11_1(DonkeyElement element) {}
+    
+    @Override
+    public void migrate3_12_0(DonkeyElement element) {
+        DonkeyElement propertiesElement = element.getChildElement("properties");
 
+        // Only do migration if the properties exist. Otherwise this could be a stub channel inside of a channel group.
+        if (propertiesElement != null) {
+            // Get channel metadata
+            DonkeyElement exportDataElement = propertiesElement.getChildElement("exportData");
+            
+            if (exportDataElement != null) {
+	            DonkeyElement metadataElement = exportDataElement.getChildElement("metadata");
+	
+	            if (metadataElement != null) {
+		            // Get pruning settings and add "pruneErroredMessages" property
+		            DonkeyElement pruningSettingsElement = metadataElement.getChildElement("pruningSettings");
+		            
+		            if (pruningSettingsElement != null) {
+		                pruningSettingsElement.addChildElement("pruneErroredMessages", "false");
+		            }
+	            }
+            }
+        }
+    }
+    
     @Override
     public Map<String, Object> getPurgedProperties() {
         Map<String, Object> purgedProperties = new HashMap<String, Object>();

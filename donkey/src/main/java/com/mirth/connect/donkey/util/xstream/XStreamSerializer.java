@@ -64,6 +64,16 @@ public class XStreamSerializer implements Serializer {
             xstream = new XStream(new Xpp3Driver());
         }
 
+        xstream.allowTypes(new String[] { "java.awt.Color" });
+        xstream.allowTypes(new Class[] { com.thoughtworks.xstream.mapper.Mapper.Null.class });
+        xstream.allowTypesByWildcard(new String[] { "com.mirth.connect.client.core.**",
+                "com.mirth.connect.connectors.**", "com.mirth.connect.model.**",
+                "com.mirth.connect.plugins.**", "com.mirth.connect.util.**",
+                "com.mirth.connect.userutil.**", "com.mirth.connect.donkey.model.**",
+                "com.mirth.connect.donkey.util.**", "com.mirth.connect.jsonbuilder.**",
+                "com.mirth.generator.model.**", "java.security.**",
+                "com.google.common.collect.Immutable**" });
+
         if (classLoader != null) {
             xstream.setClassLoader(classLoader);
         }

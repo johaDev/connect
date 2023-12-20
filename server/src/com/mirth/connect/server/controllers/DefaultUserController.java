@@ -16,11 +16,12 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ibatis.exceptions.PersistenceException;
 import org.apache.ibatis.session.SqlSession;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.mirth.commons.encryption.Digester;
 import com.mirth.connect.client.core.ControllerException;
@@ -43,12 +44,12 @@ public class DefaultUserController extends UserController {
     public static final String VACUUM_LOCK_PERSON_STATEMENT_ID = "User.vacuumPersonTable";
     public static final String VACUUM_LOCK_PREFERENCES_STATEMENT_ID = "User.vacuumPersonPreferencesTable";
 
-    private Logger logger = Logger.getLogger(this.getClass());
+    private Logger logger = LogManager.getLogger(this.getClass());
     private ExtensionController extensionController = null;
 
     private static UserController instance = null;
 
-    private DefaultUserController() {
+    public DefaultUserController() {
 
     }
 
@@ -267,7 +268,7 @@ public class DefaultUserController extends UserController {
         }
     }
 
-    public LoginStatus authorizeUser(String username, String plainPassword) throws ControllerException {
+    public LoginStatus authorizeUser(String username, String plainPassword, String serverURL) throws ControllerException {
         StatementLock.getInstance(VACUUM_LOCK_PERSON_STATEMENT_ID).readLock();
         try {
             // Invoke and return from the Authorization Plugin if one exists
@@ -284,7 +285,7 @@ public class DefaultUserController extends UserController {
                  * authentication.
                  */
                 if (loginStatus != null) {
-                    return handleSecondaryAuthentication(username, loginStatus, null);
+                    return handleSecondaryAuthentication(StringUtils.defaultString(loginStatus.getUpdatedUsername(), username), loginStatus, null, serverURL);
                 }
             }
 
@@ -400,7 +401,7 @@ public class DefaultUserController extends UserController {
                 loginStatus = new LoginStatus(status, failMessage);
             }
 
-            return handleSecondaryAuthentication(username, loginStatus, loginRequirementsChecker);
+            return handleSecondaryAuthentication(username, loginStatus, loginRequirementsChecker, serverURL);
         } catch (Exception e) {
             throw new ControllerException(e);
         } finally {
@@ -465,6 +466,10 @@ public class DefaultUserController extends UserController {
         parameterMap.put("email", user.getEmail());
         parameterMap.put("phoneNumber", user.getPhoneNumber());
         parameterMap.put("description", user.getDescription());
+        parameterMap.put("country",user.getCountry());
+        parameterMap.put("stateTerritory",user.getStateTerritory());
+        parameterMap.put("role",user.getRole());
+        parameterMap.put("userConsent", user.getUserConsent());
         return parameterMap;
     }
 
@@ -615,9 +620,9 @@ public class DefaultUserController extends UserController {
         }
     }
 
-    private LoginStatus handleSecondaryAuthentication(String username, LoginStatus loginStatus, LoginRequirementsChecker loginRequirementsChecker) {
+    private LoginStatus handleSecondaryAuthentication(String username, LoginStatus loginStatus, LoginRequirementsChecker loginRequirementsChecker, String serverURL) {
         if (loginStatus != null && extensionController.getMultiFactorAuthenticationPlugin() != null && (loginStatus.getStatus() == Status.SUCCESS || loginStatus.getStatus() == Status.SUCCESS_GRACE_PERIOD)) {
-            loginStatus = extensionController.getMultiFactorAuthenticationPlugin().authenticate(username, loginStatus);
+            loginStatus = extensionController.getMultiFactorAuthenticationPlugin().authenticate(username, loginStatus, serverURL);
         }
 
         // Only reset strikes if the final status is successful 

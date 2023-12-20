@@ -24,6 +24,7 @@ import javax.ws.rs.core.SecurityContext;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.mirth.connect.client.core.ClientException;
 import com.mirth.connect.client.core.ControllerException;
 import com.mirth.connect.client.core.api.MirthApiException;
 import com.mirth.connect.client.core.api.servlets.UserServletInterface;
@@ -72,6 +73,8 @@ public class UserServlet extends MirthServlet implements UserServletInterface {
             }
 
             if (loginStatus == null) {
+                // In case redirection is needed
+                String serverURL = request.getHeader(LOGIN_SERVER_URL_HEADER);
                 // Used for the second leg of multi-factor authentication
                 String loginData = request.getHeader(LOGIN_DATA_HEADER);
 
@@ -80,7 +83,7 @@ public class UserServlet extends MirthServlet implements UserServletInterface {
                     loginStatus = ControllerFactory.getFactory().createExtensionController().getMultiFactorAuthenticationPlugin().authenticate(loginData);
                 } else {
                     // Primary authentication
-                    loginStatus = userController.authorizeUser(username, password);
+                    loginStatus = userController.authorizeUser(username, password, serverURL);
                 }
 
                 ConfigurationController configurationController = ControllerFactory.getFactory().createConfigurationController();
@@ -176,9 +179,19 @@ public class UserServlet extends MirthServlet implements UserServletInterface {
             throw new MirthApiException(e);
         }
     }
+    
+    @Override
+    @DontCheckAuthorized
+    public void inactivityLogout() {
+    	logout();
+    }
 
     @Override
     public void createUser(User user) {
+    	if (StringUtils.isBlank(user.getUsername())) {
+    		throw new MirthApiException(Response.status(Response.Status.BAD_REQUEST).entity("username cannot be blank.").build());
+    	}
+
         try {
             userController.updateUser(user);
         } catch (ControllerException e) {
@@ -256,6 +269,10 @@ public class UserServlet extends MirthServlet implements UserServletInterface {
     @Override
     @CheckAuthorizedUserId
     public void updateUser(Integer userId, User user) {
+    	if (StringUtils.isBlank(user.getUsername())) {
+    		throw new MirthApiException(Response.status(Response.Status.BAD_REQUEST).entity("username cannot be blank.").build());
+    	}
+    	
         try {
             userController.updateUser(user);
         } catch (ControllerException e) {
@@ -339,5 +356,11 @@ public class UserServlet extends MirthServlet implements UserServletInterface {
         } catch (ControllerException e) {
             throw new MirthApiException(e);
         }
+    }
+
+    @Override
+    @CheckAuthorizedUserId(auditCurrentUser = false)
+    public void setUserNotificationAcknowledged(Integer userId) throws ClientException {
+    	// This will dispatch an event because the auditAuthorizationRequest() will be called 
     }
 }

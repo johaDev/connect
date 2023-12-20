@@ -25,7 +25,10 @@ import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneConstants;
 
-import org.apache.log4j.Logger;
+import net.miginfocom.swing.MigLayout;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.mirth.connect.client.core.ClientException;
 import com.mirth.connect.client.ui.ConnectorTypeDecoration;
@@ -44,11 +47,9 @@ import com.mirth.connect.client.ui.panels.connectors.ResponseHandler;
 import com.mirth.connect.donkey.model.channel.ConnectorProperties;
 import com.mirth.connect.util.ConnectionTestResponse;
 
-import net.miginfocom.swing.MigLayout;
-
 public class FileReader extends ConnectorSettingsPanel {
 
-    private Logger logger = Logger.getLogger(this.getClass());
+    private Logger logger = LogManager.getLogger(this.getClass());
     private Frame parent;
 
     private FileScheme selectedScheme;
@@ -427,7 +428,7 @@ public class FileReader extends ConnectorSettingsPanel {
         schemeLabel.setText("Method:");
         schemeComboBox = new MirthComboBox<FileScheme>();
         schemeComboBox.setModel(new DefaultComboBoxModel<FileScheme>(FileScheme.values()));
-        schemeComboBox.setToolTipText("The basic method used to access files to be read - file (local filesystem), FTP, SFTP, S3, Samba share, or WebDAV");
+        schemeComboBox.setToolTipText("The basic method used to access files to be read - file (local filesystem), FTP, SFTP, S3, SMB, or WebDAV");
         schemeComboBox.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent evt) {
                 schemeComboBoxActionPerformed(evt);
@@ -1053,6 +1054,8 @@ public class FileReader extends ConnectorSettingsPanel {
         } else if (scheme == FileScheme.SMB) {
             timeoutLabel.setEnabled(true);
             timeoutField.setEnabled(true);
+            advancedSettingsButton.setEnabled(true);
+            advancedProperties = new SmbSchemeProperties();
         }
 
         setSummaryText();
@@ -1077,6 +1080,12 @@ public class FileReader extends ConnectorSettingsPanel {
                 advancedProperties = dialog.getSchemeProperties();
                 setSummaryText();
             }
+        } else if (selectedScheme == FileScheme.SMB) {
+        	AdvancedSettingsDialog dialog = new AdvancedSmbSettingsDialog((SmbSchemeProperties) advancedProperties);
+            if (dialog.wasSaved()) {
+                advancedProperties = dialog.getSchemeProperties();
+                setSummaryText();
+            }
         }
     }
 
@@ -1087,6 +1096,8 @@ public class FileReader extends ConnectorSettingsPanel {
             return Objects.equals(advancedProperties, new S3SchemeProperties());
         } else if (selectedScheme == FileScheme.FTP) {
             return Objects.equals(advancedProperties, new FTPSchemeProperties());
+        } else if (selectedScheme == FileScheme.SMB) {
+            return Objects.equals(advancedProperties, new SmbSchemeProperties());
         }
         return true;
     }

@@ -20,6 +20,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
 
+import javax.xml.XMLConstants;
 import javax.xml.transform.Source;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamResult;
@@ -58,8 +59,8 @@ public class JsonXmlUtilTest {
     
     private static final String XML17 = "<livingSubjectName><value xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"PN\"><given>Amy</given><family>Davidson</family><given>C</given></value><semanticsText>LivingSubject.name</semanticsText></livingSubjectName>";
     private static final String XML18 = "<livingSubjectName><value xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"PN\"><given>Amy</given><given>C</given><family>Davidson</family></value><semanticsText>LivingSubject.name</semanticsText></livingSubjectName>";
-    private static String XML19 = "<?xml version='1.0' encoding='UTF-8'?><body><abc>123</abc><xyz attr=\"attrValue\"/></body>";
-    private static String XML20 = "<?xml version='1.0' encoding='UTF-8'?><s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\"><s:Body><v3:PRPA_IN201309UV02 xmlns:v3=\"urn:hl7-org:v3\" ITSVersion=\"XML_1.0\"><v3:addr><v3:streetAddressLine>STREET_ADDRESS</v3:streetAddressLine><v3:streetAddressLine>LINE_2</v3:streetAddressLine><v3:streetAddressLine> </v3:streetAddressLine><v3:city>CITY</v3:city><v3:state>STATE</v3:state><v3:postalCode>POSTAL_CODE</v3:postalCode></v3:addr></v3:PRPA_IN201309UV02></s:Body></s:Envelope>";
+    private static String XML19 = "<?xml version=\"1.0\" ?><body><abc>123</abc><xyz attr=\"attrValue\"></xyz></body>";
+    private static String XML20 = "<?xml version=\"1.0\" ?><s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\"><s:Body><v3:PRPA_IN201309UV02 xmlns:v3=\"urn:hl7-org:v3\" ITSVersion=\"XML_1.0\"><v3:addr><v3:streetAddressLine>STREET_ADDRESS</v3:streetAddressLine><v3:streetAddressLine>LINE_2</v3:streetAddressLine><v3:streetAddressLine> </v3:streetAddressLine><v3:city>CITY</v3:city><v3:state>STATE</v3:state><v3:postalCode>POSTAL_CODE</v3:postalCode></v3:addr></v3:PRPA_IN201309UV02></s:Body></s:Envelope>";
 
     private static final String JSON1 = "{\"root\":{\"node1\":{\"id\":[123,456],\"name\":null,\"flag\":true},\"node2\":{\"id\":789,\"name\":\"testing\",\"flag\":false}}}";
     private static final String JSON2 = "{\"root\":{\"node1\":{\"id\":123,\"id\":456,\"name\":null,\"flag\":true},\"node2\":{\"id\":789,\"name\":\"testing\",\"flag\":false}}}";
@@ -385,7 +386,10 @@ public class JsonXmlUtilTest {
     private String normalizeXml(String xml) throws Exception {
         Source source = new StreamSource(new StringReader(xml));
         Writer writer = new StringWriter();
-        TransformerFactory.newInstance().newTransformer().transform(source, new StreamResult(writer));
+        TransformerFactory tf = TransformerFactory.newInstance();
+        tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+        tf.newTransformer().transform(source, new StreamResult(writer));
         return writer.toString();
     }
 

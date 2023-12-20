@@ -41,10 +41,10 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.configuration.ConfigurationException;
-import org.apache.commons.configuration.PropertiesConfiguration;
-import org.apache.commons.configuration.PropertiesConfigurationLayout;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.configuration2.PropertiesConfiguration;
+import org.apache.commons.configuration2.PropertiesConfigurationLayout;
+import org.apache.commons.configuration2.ex.ConfigurationException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -56,6 +56,7 @@ import com.mirth.connect.client.core.ClientException;
 import com.mirth.connect.client.core.ListHandlerException;
 import com.mirth.connect.client.core.PaginatedEventList;
 import com.mirth.connect.client.core.PaginatedMessageList;
+import com.mirth.connect.client.core.PropertiesConfigurationUtil;
 import com.mirth.connect.donkey.model.channel.DeployedState;
 import com.mirth.connect.donkey.model.message.ContentType;
 import com.mirth.connect.donkey.model.message.Message;
@@ -107,7 +108,7 @@ public class CommandLineInterface {
     }
 
     public static void main(String[] args) {
-        System.setProperty("log4j.configuration", "log4j-cli.properties");
+        System.setProperty("log4j2.configurationFile", "log4j2-cli.properties");
         new CommandLineInterface(args);
     }
 
@@ -1363,7 +1364,7 @@ public class CommandLineInterface {
                     };
                 }
 
-                messageCount = new MessageExporter().exportMessages(messageList, messageWriter, attachmentSource);
+                messageCount = new MessageExporter().exportMessages(messageList, messageWriter, attachmentSource, writerOptions); 
                 messageWriter.finishWrite();
             } catch (Exception e) {
                 Throwable cause = ExceptionUtils.getRootCause(e);
@@ -1397,7 +1398,7 @@ public class CommandLineInterface {
 
         if (file != null && file.exists()) {
             try {
-                PropertiesConfiguration properties = new PropertiesConfiguration(file);
+                PropertiesConfiguration properties = PropertiesConfigurationUtil.create(file);
                 Map<String, ConfigurationProperty> configurationMap = new HashMap<String, ConfigurationProperty>();
                 Iterator<String> iterator = properties.getKeys();
 
@@ -1412,7 +1413,7 @@ public class CommandLineInterface {
                 client.setConfigurationMap(configurationMap);
 
                 out.println("Configuration map import complete");
-            } catch (ConfigurationException e) {
+            } catch (ConfigurationException | IOException e) {
                 error("Unable to import configuration map", e);
             }
         } else {
@@ -1431,7 +1432,7 @@ public class CommandLineInterface {
 
         if (file != null) {
             try {
-                PropertiesConfiguration properties = new PropertiesConfiguration(file);
+                PropertiesConfiguration properties = PropertiesConfigurationUtil.create(file);
                 properties.clear();
                 PropertiesConfigurationLayout layout = properties.getLayout();
 
@@ -1450,10 +1451,10 @@ public class CommandLineInterface {
                     }
                 }
 
-                properties.save();
+                PropertiesConfigurationUtil.saveTo(properties, file);
 
                 out.println("Configuration map export complete.");
-            } catch (ConfigurationException e) {
+            } catch (ConfigurationException | IOException e) {
                 error("Unable to export configuration map.", e);
             }
         }
@@ -1662,7 +1663,7 @@ public class CommandLineInterface {
                 String oldName = channel.getName();
                 channel.setName(arguments[3].getText());
                 if (checkChannelName(channel.getName())) {
-                    client.updateChannel(channel, true);
+                    client.updateChannel(channel, true, null);
                     out.println("Channel '" + oldName + "' renamed to '" + channel.getName() + "'");
                 }
             }
@@ -1972,7 +1973,7 @@ public class CommandLineInterface {
 
         importChannelDependencies(importChannel);
 
-        client.updateChannel(importChannel, true);
+        client.updateChannel(importChannel, true, null);
         out.println("Channel '" + channelName + "' imported successfully.");
     }
 

@@ -22,8 +22,11 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 
-import org.apache.commons.lang.math.NumberUtils;
-import org.apache.log4j.Logger;
+import net.miginfocom.swing.MigLayout;
+
+import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.mirth.connect.client.core.ClientException;
 import com.mirth.connect.client.ui.ConnectorTypeDecoration;
@@ -41,11 +44,9 @@ import com.mirth.connect.donkey.model.channel.ConnectorProperties;
 import com.mirth.connect.model.Connector.Mode;
 import com.mirth.connect.util.ConnectionTestResponse;
 
-import net.miginfocom.swing.MigLayout;
-
 public class FileWriter extends ConnectorSettingsPanel {
 
-    private Logger logger = Logger.getLogger(this.getClass());
+    private Logger logger = LogManager.getLogger(this.getClass());
     private Frame parent;
 
     private FileScheme selectedScheme;
@@ -680,7 +681,7 @@ public class FileWriter extends ConnectorSettingsPanel {
     }
 
     private void initToolTips() {
-        schemeComboBox.setToolTipText("The basic method used to write files with - file (local filesystem), FTP, SFTP, Samba share, or WebDAV");
+        schemeComboBox.setToolTipText("The basic method used to write files with - file (local filesystem), FTP, SFTP, SMB, or WebDAV");
         directoryField.setToolTipText("The directory (folder) to write the files to.");
         hostField.setToolTipText("The name or IP address of the host (computer) on which the files can be written.");
         pathField.setToolTipText("The directory (folder) to write the files to.");
@@ -937,6 +938,8 @@ public class FileWriter extends ConnectorSettingsPanel {
         } else if (scheme.equals(FileScheme.SMB)) {
             timeoutLabel.setEnabled(true);
             timeoutField.setEnabled(true);
+            advancedSettingsButton.setEnabled(true);
+            advancedProperties = new SmbSchemeProperties();
         }
 
         setSummaryText();
@@ -961,6 +964,12 @@ public class FileWriter extends ConnectorSettingsPanel {
                 advancedProperties = dialog.getSchemeProperties();
                 setSummaryText();
             }
+        } else if (selectedScheme == FileScheme.SMB) {
+        	AdvancedSettingsDialog dialog = new AdvancedSmbSettingsDialog((SmbSchemeProperties) advancedProperties);
+        	if (dialog.wasSaved()) {
+        		advancedProperties = dialog.getSchemeProperties();
+        		setSummaryText();
+        	}
         }
     }
 
@@ -971,6 +980,8 @@ public class FileWriter extends ConnectorSettingsPanel {
             return Objects.equals(advancedProperties, new S3SchemeProperties());
         } else if (selectedScheme == FileScheme.FTP) {
             return Objects.equals(advancedProperties, new FTPSchemeProperties());
+        } else if (selectedScheme == FileScheme.SMB) {
+        	return Objects.equals(advancedProperties, new SmbSchemeProperties());
         }
         return true;
     }

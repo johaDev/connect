@@ -14,15 +14,17 @@ import java.net.URLClassLoader;
 import java.util.Set;
 import java.util.UUID;
 
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextFactory;
 import org.mozilla.javascript.ScriptableObject;
 
 import com.mirth.connect.donkey.util.Serializer;
+import com.mirth.connect.model.codetemplates.ContextType;
 import com.mirth.connect.model.converters.ObjectXMLSerializer;
 import com.mirth.connect.server.controllers.ConfigurationController;
 import com.mirth.connect.server.controllers.ControllerFactory;
+import com.mirth.connect.server.util.ChildFirstURLClassLoader;
 
 public class MirthContextFactory extends ContextFactory {
 
@@ -33,15 +35,46 @@ public class MirthContextFactory extends ContextFactory {
     private ObjectXMLSerializer serializer;
     private ClassLoader isolatedClassLoader;
     private int languageVersion = Context.VERSION_DEFAULT;
+    private String scriptText;
+    private ContextType contextType;
+    private Boolean debugType = false;
 
-    public MirthContextFactory(URL[] urls, Set<String> resourceIds) {
+    public Boolean isDebug() {
+        return debugType;
+    }
+
+    public void setDebugType(Boolean debug) {
+        this.debugType = debug;
+    }
+
+    public String getScriptText() {
+        return scriptText;
+    }
+
+    public void setScriptText(String scriptText) {
+        this.scriptText = scriptText;
+    }
+
+    public ContextType getContextType() {
+        return contextType;
+    }
+
+    public void setContextType(ContextType contextType) {
+        this.contextType = contextType;
+    }
+
+    public MirthContextFactory(URL[] urls, Set<String> resourceIds, boolean loadParentFirst) {
         this.id = UUID.randomUUID().toString();
         this.urls = urls;
         this.resourceIds = resourceIds;
 
         ClassLoader classLoader = null;
         if (ArrayUtils.isNotEmpty(urls)) {
-            classLoader = new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
+            if (loadParentFirst) {
+                classLoader = new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
+            } else {
+                classLoader = new ChildFirstURLClassLoader(urls, Thread.currentThread().getContextClassLoader());
+            }
         } else {
             classLoader = Thread.currentThread().getContextClassLoader();
         }

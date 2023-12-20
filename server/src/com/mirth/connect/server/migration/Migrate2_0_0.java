@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.sql.Connection;
@@ -23,12 +24,13 @@ import java.util.Properties;
 
 import org.apache.commons.dbutils.DbUtils;
 import org.apache.commons.io.IOUtils;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.mirth.connect.model.util.MigrationException;
 
 public class Migrate2_0_0 extends Migrator {
-    private Logger logger = Logger.getLogger(getClass());
+    private Logger logger = LogManager.getLogger(getClass());
 
     @Override
     public void migrate() throws MigrationException {
@@ -87,9 +89,11 @@ public class Migrate2_0_0 extends Migrator {
         File propertiesFile = new File(getBaseDir() + IOUtils.DIR_SEPARATOR + "server.properties");
 
         if (propertiesFile.exists()) {
+            InputStream is = null;
             try {
+                is = new FileInputStream(propertiesFile);
                 Properties serverProperties = new Properties();
-                serverProperties.load(new FileInputStream(propertiesFile));
+                serverProperties.load(is);
 
                 for (Object name : serverProperties.keySet()) {
                     updateServerProperty((String) name, serverProperties.getProperty((String) name));
@@ -102,6 +106,8 @@ public class Migrate2_0_0 extends Migrator {
                 logger.error("Error loading existing server.properties file.", e);
             } catch (IOException e) {
                 logger.error("Error loading existing server.properties file.", e);
+            } finally {
+                ResourceUtil.closeResourceQuietly(is);
             }
         }
     }

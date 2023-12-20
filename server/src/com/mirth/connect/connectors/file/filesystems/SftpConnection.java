@@ -1,8 +1,8 @@
 /*
  * Copyright (c) Mirth Corporation. All rights reserved.
- * 
+ *
  * http://www.mirthcorp.com
- * 
+ *
  * The software in this package is published under the terms of the MPL license a copy of which has
  * been included with this distribution in the LICENSE.txt file.
  */
@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Vector;
 
-import org.apache.commons.collections.MapUtils;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
@@ -110,7 +110,6 @@ public class SftpConnection implements FileSystemConnection {
     public SftpConnection(String host, int port, FileSystemConnectionOptions fileSystemOptions, int timeout) throws Exception {
 
         JSch jsch = new JSch();
-        client = new ChannelSftp();
         configuration = new Properties();
 
         try {
@@ -223,10 +222,21 @@ public class SftpConnection implements FileSystemConnection {
 
     @Override
     public boolean exists(String file, String path) {
+        if(null == file) {
+            return false;
+        }
+
         try {
             cwd(path);
-            return client.ls(".").contains(file);
+
+            @SuppressWarnings("unchecked")
+            Vector<ChannelSftp.LsEntry> entries = (Vector<ChannelSftp.LsEntry>)client.ls(".");
+
+            return entries.stream()
+                    .anyMatch(le -> file.equals(le.getFilename()));
         } catch (Exception e) {
+            logger.warn("Failed to check for the existence of file " + file + " in path " + path + " on server " + session.getHost(), e);
+
             return false;
         }
     }
@@ -277,7 +287,7 @@ public class SftpConnection implements FileSystemConnection {
     }
 
     @Override
-    public void writeFile(String file, String toDir, boolean append, InputStream is, Map<String, Object> connectorMap) throws Exception {
+    public void writeFile(String file, String toDir, boolean append, InputStream is, long contentLength, Map<String, Object> connectorMap) throws Exception {
         lastDir = toDir;
         cdmake(toDir);
         int mode = 0;
@@ -365,11 +375,11 @@ public class SftpConnection implements FileSystemConnection {
 
     @Override
     public void destroy() {
-        if ((client != null) && client.isConnected()) {
+        if (client != null) {
             client.quit();
         }
 
-        if ((session != null) && session.isConnected()) {
+        if (session != null) {
             session.disconnect();
         }
     }

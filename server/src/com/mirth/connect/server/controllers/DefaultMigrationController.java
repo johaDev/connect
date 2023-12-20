@@ -13,8 +13,9 @@ import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collection;
 
-import org.apache.commons.configuration.PropertiesConfiguration;
-import org.apache.log4j.Logger;
+import org.apache.commons.configuration2.PropertiesConfiguration;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.mirth.connect.model.PluginMetaData;
 import com.mirth.connect.model.util.MigrationException;
@@ -48,7 +49,7 @@ public class DefaultMigrationController extends MigrationController {
     private ConfigurationController configurationController = ControllerFactory.getFactory().createConfigurationController();
     private ServerMigrator serverMigrator;
     private Collection<Migrator> pluginMigrators;
-    private Logger logger = Logger.getLogger(this.getClass());
+    private Logger logger = LogManager.getLogger(this.getClass());
 
     public DefaultMigrationController() {
         serverMigrator = new ServerMigrator();
@@ -149,6 +150,56 @@ public class DefaultMigrationController extends MigrationController {
         } finally {
             if (SqlConfig.getInstance().getSqlSessionManager().isManagedSessionStarted()) {
                 SqlConfig.getInstance().getSqlSessionManager().close();
+            }
+        }
+    }
+
+    @Override
+    public void checkStartupLockTable() {
+        int startupLockSleep = configurationController.getStartupLockSleep();
+        if (startupLockSleep > 0) {
+            try {
+                boolean insertedStartupLock = false;
+                SqlConfig.getInstance().getSqlSessionManager().startManagedSession();
+
+                try {
+                    Connection connection = SqlConfig.getInstance().getSqlSessionManager().getConnection();
+                    serverMigrator.setConnection(connection);
+                    serverMigrator.setDatabaseType(configurationController.getDatabaseType());
+
+                    insertedStartupLock = serverMigrator.checkStartupLockTable();
+                } finally {
+                    if (SqlConfig.getInstance().getSqlSessionManager().isManagedSessionStarted()) {
+                        SqlConfig.getInstance().getSqlSessionManager().close();
+                    }
+                }
+
+                // Sleep if lock row was not able to be inserted
+                if (!insertedStartupLock) {
+                    logger.warn("Detected startup lock, sleeping " + startupLockSleep + "ms...");
+                    Thread.sleep(startupLockSleep);
+                }
+            } catch (Throwable t) {
+                logger.error("Error checking startup lock table.", t);
+            }
+        }
+    }
+
+    @Override
+    public void clearStartupLockTable() {
+        int startupLockSleep = configurationController.getStartupLockSleep();
+        if (startupLockSleep > 0) {
+            SqlConfig.getInstance().getSqlSessionManager().startManagedSession();
+
+            try {
+                Connection connection = SqlConfig.getInstance().getSqlSessionManager().getConnection();
+                serverMigrator.setConnection(connection);
+                serverMigrator.setDatabaseType(configurationController.getDatabaseType());
+                serverMigrator.clearStartupLockTable();
+            } finally {
+                if (SqlConfig.getInstance().getSqlSessionManager().isManagedSessionStarted()) {
+                    SqlConfig.getInstance().getSqlSessionManager().close();
+                }
             }
         }
     }

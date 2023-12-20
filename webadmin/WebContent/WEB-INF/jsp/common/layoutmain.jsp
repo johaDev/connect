@@ -11,7 +11,7 @@
     <html>
         <head>
             <title>Mirth Connect Web Administrator</title>
-            <link rel="shortcut icon" type="image/x-icon" href="${contextPath}/images/favicon.ico" />
+            <link rel="shortcut icon" type="image/x-icon" href="${contextPath}/images/NG_MC_Icon_16x16.png" />
             <link rel="stylesheet" type="text/css" href="${contextPath}/css/bootstrap.css" />
             <link rel="stylesheet" type="text/css" href="${contextPath}/css/statistics.css" />
             <s:layout-component name="head" />
@@ -21,7 +21,7 @@
             <nav id="header" class="navbar navbar-inverse navbar-fixed-top" role="navigation">
                 <div class="navbar-inner">
                     <div id="statisticsNavbarContainer" class="container" style="width: 98%;">
-                        <a class="navbar-brand"> <img alt="Mirth Connect" src="${contextPath}/css/mirthconnectlogowide.png" style="height: 30px"></a>
+                        <a class="navbar-brand"> <img alt="Mirth Connect" src="${contextPath}/images/MirthConnect_Logo_WordMark_white.png" style="height: 30px"></a>
                         <ul id="navbarList" class="nav navbar-nav">
                             <li id="li_dashboardstatistics"><s:link beanclass="com.mirth.connect.webadmin.action.DashboardStatisticsActionBean">Dashboard Statistics</s:link></li>
                         </ul>
@@ -48,7 +48,7 @@
             <div id="footer"></div>
         
             <!-- Scripts placed at the end of the document so the pages load faster -->
-            <script src="${contextPath}/js/jquery-1.8.0.js"></script>
+            <script src="${contextPath}/js/jquery-3.5.1.min.js"></script>
             <script src="${contextPath}/js/bootstrap.min.js"></script>
         
             <!-- Script to highlight navbar links as active upon click -->

@@ -14,11 +14,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.log4j.Logger;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class MessageParameters {
-    private static Logger logger = Logger.getLogger(MessageParameters.class);
+    private static Logger logger = LogManager.getLogger(MessageParameters.class);
     private Map<String, List<String>> delegate;
 
     public MessageParameters(Map<String, List<String>> delegate) {

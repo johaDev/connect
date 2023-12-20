@@ -20,9 +20,9 @@ import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.ibatis.exceptions.PersistenceException;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.mirth.connect.client.core.ControllerException;
 import com.mirth.connect.donkey.model.event.Event;
@@ -37,10 +37,11 @@ import com.mirth.connect.server.ExtensionLoader;
 import com.mirth.connect.server.event.AuditableEventListener;
 import com.mirth.connect.server.event.EventListener;
 import com.mirth.connect.server.util.DatabaseUtil;
+import com.mirth.connect.server.util.ResourceUtil;
 import com.mirth.connect.server.util.SqlConfig;
 
 public class DefaultEventController extends EventController {
-    private Logger logger = Logger.getLogger(this.getClass());
+    private Logger logger = LogManager.getLogger(this.getClass());
 
     private static EventController instance = null;
 
@@ -51,7 +52,7 @@ public class DefaultEventController extends EventController {
     private static Map<Object, BlockingQueue<Event>> serverEventQueues = new ConcurrentHashMap<Object, BlockingQueue<Event>>();
     private static Map<Object, BlockingQueue<Event>> genericEventQueues = new ConcurrentHashMap<Object, BlockingQueue<Event>>();
 
-    private DefaultEventController() {
+    protected DefaultEventController() {
         addListener(new AuditableEventListener());
     }
 
@@ -169,6 +170,15 @@ public class DefaultEventController extends EventController {
             throw new ControllerException(e);
         }
     }
+    
+    @Override
+    public List<ServerEvent> getEventsByAsc(EventFilter filter, Integer offset, Integer limit) throws ControllerException {
+        try {
+            return SqlConfig.getInstance().getReadOnlySqlSessionManager().selectList("Event.searchEventsByAsc", getParameters(filter, offset, limit));
+        } catch (Exception e) {
+            throw new ControllerException(e);
+        }
+    }
 
     @Override
     public Long getEventCount(EventFilter filter) throws ControllerException {
@@ -211,6 +221,7 @@ public class DefaultEventController extends EventController {
 
         params.put("outcome", filter.getOutcome());
         params.put("userId", filter.getUserId());
+        params.put("attributeSearch", filter.getAttributeSearch());
         params.put("ipAddress", filter.getIpAddress());
         params.put("serverId", filter.getServerId());
 
@@ -228,8 +239,9 @@ public class DefaultEventController extends EventController {
         exportDir.mkdir();
         File exportFile = new File(exportDir, currentDateTime + "-events.txt");
 
+        FileWriter writer = null;
         try {
-            FileWriter writer = new FileWriter(exportFile, true);
+            writer = new FileWriter(exportFile, true);
 
             // write the CSV headers to the file
             writer.write(ServerEvent.getExportHeader());
@@ -254,14 +266,15 @@ public class DefaultEventController extends EventController {
                 events = getEvents(filter, null, interval);
             }
 
-            IOUtils.closeQuietly(writer);
             logger.debug("events exported to file: " + exportFile.getAbsolutePath());
 
-            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "Sucessfully exported events");
+            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "Successfully exported events");
             event.addAttribute("file", exportFile.getAbsolutePath());
             dispatchEvent(event);
         } catch (IOException e) {
             throw new ControllerException("Error exporting events to file.", e);
+        } finally {
+            ResourceUtil.closeResourceQuietly(writer);
         }
 
         return exportFile.getAbsolutePath();

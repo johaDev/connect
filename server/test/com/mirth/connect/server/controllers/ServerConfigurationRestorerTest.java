@@ -18,6 +18,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -257,7 +258,7 @@ public class ServerConfigurationRestorerTest {
 
         restorer.restoreChannels(config, multiException);
 
-        assertEquals(1, multiException.size());
+        assertEquals(2, multiException.size());
     }
 
     @Test
@@ -305,7 +306,7 @@ public class ServerConfigurationRestorerTest {
         MultiException multiException = new MultiException();
         restorer.removeChannels(config1, multiException);
 
-        assertEquals(1, multiException.size());
+        assertEquals(2, multiException.size());
     }
 
     @Test
@@ -345,7 +346,7 @@ public class ServerConfigurationRestorerTest {
         MultiException multiException = new MultiException();
         restorer.updateChannels(config1, multiException);
 
-        assertEquals(1, multiException.size());
+        assertEquals(5, multiException.size());
     }
 
     @Test
@@ -355,10 +356,10 @@ public class ServerConfigurationRestorerTest {
         Channel channel = new Channel("1");
         restorer.updateChannel(channel, new MultiException());
 
-        verify(restorer.getChannelController(), times(1)).updateChannel(channel, ServerEventContext.SYSTEM_USER_EVENT_CONTEXT, true);
+        verify(restorer.getChannelController(), times(1)).updateChannel(channel, ServerEventContext.SYSTEM_USER_EVENT_CONTEXT, true, null);
 
         ChannelController channelController = restorer.getChannelController();
-        doThrow(ControllerException.class).when(channelController).updateChannel(any(), any(), anyBoolean());
+        doThrow(ControllerException.class).when(channelController).updateChannel(any(), any(), anyBoolean(), any());
         MultiException multiException = new MultiException();
         restorer.updateChannel(channel, multiException);
         assertEquals(1, multiException.size());
@@ -392,7 +393,7 @@ public class ServerConfigurationRestorerTest {
         MultiException multiException = new MultiException();
         restorer.restoreAlerts(config1, multiException);
 
-        assertEquals(1, multiException.size());
+        assertEquals(2, multiException.size());
     }
 
     @Test
@@ -426,7 +427,7 @@ public class ServerConfigurationRestorerTest {
         MultiException multiException = new MultiException();
         restorer.removeExistingAlerts(multiException);
 
-        assertEquals(1, multiException.size());
+        assertEquals(3, multiException.size());
     }
 
     @Test
@@ -469,7 +470,7 @@ public class ServerConfigurationRestorerTest {
         MultiException multiException = new MultiException();
         restorer.updateNewAlerts(config, multiException);
 
-        assertEquals(1, multiException.size());
+        assertEquals(3, multiException.size());
     }
 
     @Test
@@ -519,7 +520,7 @@ public class ServerConfigurationRestorerTest {
 
         restorer.restoreCodeTemplateLibraries(config, multiException);
 
-        assertEquals(1, multiException.size());
+        assertEquals(2, multiException.size());
     }
 
     @Test
@@ -566,7 +567,7 @@ public class ServerConfigurationRestorerTest {
         CodeTemplateController codeTemplateController = restorer.getCodeTemplateController();
         doThrow(ControllerException.class).when(codeTemplateController).getCodeTemplates(any());
         restorer.removeCodeTemplates(config, multiException);
-        assertEquals(1, multiException.size());
+        assertEquals(2, multiException.size());
     }
 
     @Test
@@ -615,7 +616,7 @@ public class ServerConfigurationRestorerTest {
             }
         }).when(restorer).updateNewCodeTemplate(any(), any());
         restorer.updateNewCodeTemplates(config, multiException);
-        assertEquals(1, multiException.size());
+        assertEquals(4, multiException.size());
     }
 
     @Test
@@ -718,7 +719,7 @@ public class ServerConfigurationRestorerTest {
 
         doThrow(ControllerException.class).when(restorer).restorePluginProperties(anyString(), any(), any());
         restorer.restorePluginProperties(config, multiException);
-        assertEquals(config.getPluginProperties().size(), multiException.size());
+        assertEquals(2, multiException.size());
     }
 
     @Test
@@ -852,17 +853,17 @@ public class ServerConfigurationRestorerTest {
         MultiException multiException = new MultiException();
 
         restorer.deployAllChannels(deploy, multiException);
-        verify(restorer.getEngineController(), times(0)).deployChannels(any(), any(), any());
+        verify(restorer.getEngineController(), times(0)).deployChannels(any(), any(), any(), any());
 
         deploy = true;
         Set<String> channelIds = new HashSet<String>();
         channelIds.add("1");
         when(restorer.getChannelController().getChannelIds()).thenReturn(channelIds);
         restorer.deployAllChannels(deploy, multiException);
-        verify(restorer.getEngineController(), times(1)).deployChannels(channelIds, ServerEventContext.SYSTEM_USER_EVENT_CONTEXT, null);
+        verify(restorer.getEngineController(), times(1)).deployChannels(eq(channelIds), eq(ServerEventContext.SYSTEM_USER_EVENT_CONTEXT), isNull(), any());
 
         EngineController engineController = restorer.getEngineController();
-        doThrow(ControllerException.class).when(engineController).deployChannels(any(), any(), any());
+        doThrow(ControllerException.class).when(engineController).deployChannels(any(), any(), any(), any());
         restorer.deployAllChannels(deploy, multiException);
         assertEquals(1, multiException.size());
     }

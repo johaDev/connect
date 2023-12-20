@@ -11,15 +11,15 @@ package com.mirth.connect.server.migration;
 
 import java.util.Map;
 
-import org.apache.commons.configuration.ConfigurationException;
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration2.PropertiesConfiguration;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.mirth.connect.model.util.MigrationException;
 
 public class Migrate3_4_0 extends Migrator implements ConfigurationMigrator {
-    private Logger logger = Logger.getLogger(getClass());
+    private Logger logger = LogManager.getLogger(getClass());
 
     @Override
     public void migrate() throws MigrationException {
@@ -43,12 +43,6 @@ public class Migrate3_4_0 extends Migrator implements ConfigurationMigrator {
     public void updateConfiguration(PropertiesConfiguration configuration) {
         if (StringUtils.containsIgnoreCase(configuration.getLayout().getComment("database"), "sqlserver2000")) {
             configuration.getLayout().setComment("database", "options: derby, mysql, postgres, oracle, sqlserver");
-
-            try {
-                configuration.save();
-            } catch (ConfigurationException e) {
-                logger.warn("An error occurred updating the database property comment.");
-            }
         }
     }
 }

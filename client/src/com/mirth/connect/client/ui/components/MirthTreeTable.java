@@ -47,7 +47,7 @@ import javax.swing.table.JTableHeader;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jdesktop.swingx.table.ColumnControlButton;
 import org.jdesktop.swingx.table.TableColumnExt;
@@ -66,7 +66,7 @@ import com.mirth.connect.model.converters.ObjectXMLSerializer;
 
 public class MirthTreeTable extends SortableTreeTable {
 
-    private static String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss:SSS";
+    private static String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
     private static String PREFERENCE_COLUMN_ORDER_MAP = "TreeColumnOrderMap";
     private static String PREFERENCE_SORT_ORDER = "TreeSortOrder";
     private static String PREFERENCE_SORT_ORDER_COLUMN = "TreeSortOrderColumn";
@@ -154,19 +154,21 @@ public class MirthTreeTable extends SortableTreeTable {
         header.setDefaultRenderer(new SortableHeaderCellRenderer(header.getDefaultRenderer()));
 
         final JButton columnControlButton = new JButton(new ColumnControlButton(this).getIcon());
-
+        configureColumnControlAction(columnControlButton);
+        setColumnControl(columnControlButton);
+    }
+    
+    protected void configureColumnControlAction(JButton columnControlButton) {
         columnControlButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                JPopupMenu columnMenu = getColumnMenu();
-                Dimension buttonSize = columnControlButton.getSize();
-                int xPos = columnControlButton.getComponentOrientation().isLeftToRight() ? buttonSize.width - columnMenu.getPreferredSize().width : 0;
-                columnMenu.show(columnControlButton, xPos, columnControlButton.getHeight());
+                    JPopupMenu columnMenu = getColumnMenu();
+                    Dimension buttonSize = columnControlButton.getSize();
+                    int xPos = columnControlButton.getComponentOrientation().isLeftToRight() ? buttonSize.width - columnMenu.getPreferredSize().width : 0;
+                    columnMenu.show(columnControlButton, xPos, columnControlButton.getHeight());
             }
 
         });
-
-        setColumnControl(columnControlButton);
     }
 
     protected void beforeSort() {}
@@ -298,32 +300,33 @@ public class MirthTreeTable extends SortableTreeTable {
             final JCheckBoxMenuItem menuItem = new JCheckBoxMenuItem(columnName);
             // Show or hide the checkbox
             menuItem.setSelected(column.isVisible());
-
-            menuItem.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent arg0) {
-                    TableColumnExt column = getColumnExt(menuItem.getText());
-                    // Determine whether to show or hide the selected column
-                    boolean enable = !column.isVisible();
-                    // Do not hide a column if it is the last remaining visible column              
-                    if (enable || getColumnCount() > 1) {
-                        column.setVisible(enable);
-
-                        Set<String> customHiddenColumns = customHiddenColumnMap.get(channelId);
-
-                        if (customHiddenColumns != null) {
-                            if (enable) {
-                                customHiddenColumns.remove(columnName);
-                            } else {
-                                customHiddenColumns.add(columnName);
+            if(shouldAddMenuItem(columnName)) {
+                menuItem.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent arg0) {
+                        TableColumnExt column = getColumnExt(menuItem.getText());
+                        // Determine whether to show or hide the selected column
+                        boolean enable = !column.isVisible();
+                        // Do not hide a column if it is the last remaining visible column              
+                        if (enable || getColumnCount() > 1) {
+                            column.setVisible(enable);
+    
+                            Set<String> customHiddenColumns = customHiddenColumnMap.get(channelId);
+    
+                            if (customHiddenColumns != null) {
+                                if (enable) {
+                                    customHiddenColumns.remove(columnName);
+                                } else {
+                                    customHiddenColumns.add(columnName);
+                                }
                             }
                         }
+                        saveColumnOrder();
                     }
-                    saveColumnOrder();
-                }
-            });
-
-            columnMenu.add(menuItem);
+                });
+    
+                columnMenu.add(menuItem);
+            }
         }
 
         columnMenu.addSeparator();
@@ -357,9 +360,7 @@ public class MirthTreeTable extends SortableTreeTable {
 
             @Override
             public void actionPerformed(ActionEvent event) {
-                if (metaDataColumns != null) {
-                    defaultVisibleColumns.addAll(metaDataColumns);
-                }
+                restoreDefaultVisibleColumns();
                 restoreDefaultColumnPreferences();
             }
 
@@ -368,7 +369,21 @@ public class MirthTreeTable extends SortableTreeTable {
 
         return columnMenu;
     }
+    
+    protected void restoreDefaultVisibleColumns() {
+    	if (metaDataColumns != null) {
+            defaultVisibleColumns.addAll(metaDataColumns);
+        }
+    }
+    
+    public boolean shouldAddMenuItem(String columnName) {
+        return true;
+    }
 
+    public Set<String> getMetaDataColumns() {
+        return this.metaDataColumns;
+    }
+    
     public void setMetaDataColumns(Set<String> metaDataColumns, String channelId) {
         this.channelId = channelId;
         this.metaDataColumns = metaDataColumns;
@@ -493,9 +508,7 @@ public class MirthTreeTable extends SortableTreeTable {
 
             if (StringUtils.isNotEmpty(prefix)) {
                 columnOrderMap.clear();
-                if (customHiddenColumnMap.get(channelId) != null) {
-                    customHiddenColumnMap.get(channelId).clear();
-                }
+                restoreDefaultCustomHiddenColumnMap();
                 /*
                  * To preserve the order of all columns, including those that should be hidden, we
                  * must perform the following loops: First, we need to make all columns visible.
@@ -527,6 +540,12 @@ public class MirthTreeTable extends SortableTreeTable {
                 ((SortableHeaderCellRenderer) getTableHeader().getDefaultRenderer()).setColumnIndex(sortOrderColumn);
             }
         } catch (Exception e) {
+        }
+    }
+    
+    public void restoreDefaultCustomHiddenColumnMap() {
+    	if (customHiddenColumnMap.get(channelId) != null) {
+            customHiddenColumnMap.get(channelId).clear();
         }
     }
 

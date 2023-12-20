@@ -33,6 +33,8 @@ public class ChannelProperties implements Serializable, Migratable, Purgable {
     private boolean clearGlobalChannelMap;
     private MessageStorageMode messageStorageMode;
     private boolean encryptData;
+    private boolean encryptAttachments;
+    private boolean encryptCustomMetaData;
     private boolean removeContentOnCompletion;
     private boolean removeOnlyFilteredOnCompletion;
     private boolean removeAttachmentsOnCompletion;
@@ -46,6 +48,8 @@ public class ChannelProperties implements Serializable, Migratable, Purgable {
         clearGlobalChannelMap = true;
         messageStorageMode = MessageStorageMode.DEVELOPMENT;
         encryptData = false;
+        encryptAttachments = false;
+        encryptCustomMetaData = false;
         initialState = DeployedState.STARTED;
         storeAttachments = true;
         metaDataColumns = new ArrayList<MetaDataColumn>();
@@ -70,12 +74,28 @@ public class ChannelProperties implements Serializable, Migratable, Purgable {
         this.messageStorageMode = messageStorageMode;
     }
 
-    public boolean isEncryptData() {
+    public boolean isEncryptMessageContent() {
         return encryptData;
     }
 
-    public void setEncryptData(boolean encryptData) {
+    public void setEncryptMessageContent(boolean encryptData) {
         this.encryptData = encryptData;
+    }
+
+    public boolean isEncryptAttachments() {
+        return encryptAttachments;
+    }
+
+    public void setEncryptAttachments(boolean encryptAttachments) {
+        this.encryptAttachments = encryptAttachments;
+    }
+
+    public boolean isEncryptCustomMetaData() {
+        return encryptCustomMetaData;
+    }
+
+    public void setEncryptCustomMetaData(boolean encryptCustomMetaData) {
+        this.encryptCustomMetaData = encryptCustomMetaData;
     }
 
     public boolean isRemoveContentOnCompletion() {
@@ -186,7 +206,11 @@ public class ChannelProperties implements Serializable, Migratable, Purgable {
     // @formatter:off
     @Override public void migrate3_5_0(DonkeyElement element) {}
     @Override public void migrate3_6_0(DonkeyElement element) {}
-    @Override public void migrate3_7_0(DonkeyElement element) {} // @formatter:on
+    @Override public void migrate3_7_0(DonkeyElement element) {}
+    @Override public void migrate3_9_0(DonkeyElement element) {} 
+    @Override public void migrate3_11_0(DonkeyElement element) {}
+    @Override public void migrate3_11_1(DonkeyElement element) {} 
+    @Override public void migrate3_12_0(DonkeyElement element) {} // @formatter:on
 
     @Override
     public Map<String, Object> getPurgedProperties() {
@@ -194,6 +218,8 @@ public class ChannelProperties implements Serializable, Migratable, Purgable {
         purgedProperties.put("clearGlobalChannelMap", clearGlobalChannelMap);
         purgedProperties.put("messageStorageMode", messageStorageMode);
         purgedProperties.put("encryptData", encryptData);
+        purgedProperties.put("encryptAttachments", encryptAttachments);
+        purgedProperties.put("encryptCustomMetaData", encryptCustomMetaData);
         purgedProperties.put("removeContentOnCompletion", removeContentOnCompletion);
         purgedProperties.put("removeAttachmentsOnCompletion", removeAttachmentsOnCompletion);
         purgedProperties.put("initialState", initialState);

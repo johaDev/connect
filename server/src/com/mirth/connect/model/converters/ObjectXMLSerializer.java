@@ -17,9 +17,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.Logger;
-
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import com.mirth.connect.donkey.model.channel.ConnectorProperties;
 import com.mirth.connect.donkey.model.channel.DestinationConnectorProperties;
 import com.mirth.connect.donkey.util.DonkeyElement;
@@ -133,7 +134,7 @@ public class ObjectXMLSerializer extends XStreamSerializer {
 
     private static Set<Class<?>> extraAnnotatedClasses;
 
-    private Logger logger = Logger.getLogger(getClass());
+    private Logger logger = LogManager.getLogger(getClass());
     private String normalizedVersion;
     private ObjectXMLSerializer instanceWithReferences;
 
@@ -168,6 +169,7 @@ public class ObjectXMLSerializer extends XStreamSerializer {
         getXStream().registerConverter(new PluginMetaDataConverter(getXStream().getMapper()));
         getXStream().registerConverter(new JavaScriptObjectConverter(getXStream().getMapper()));
         getXStream().registerConverter(new ThrowableConverter(getXStream().getMapper()));
+        getXStream().registerConverter(new FilterTransformerElementsConverter(getXStream().getMapper()));
 
         // Create a separate instance of XStream specifically for handling references
         if (xstreamMode == XStream.NO_REFERENCES) {
@@ -223,6 +225,53 @@ public class ObjectXMLSerializer extends XStreamSerializer {
 
     public String getNormalizedVersion() {
         return normalizedVersion;
+    }
+
+    public void allowTypes(List<String> types, List<String> wildcardTypes, List<String> typeHierarchies) {
+        if (CollectionUtils.isNotEmpty(types)) {
+            String[] typesArray = types.toArray(new String[types.size()]);
+            getXStream().allowTypes(typesArray);
+            if (instanceWithReferences != null) {
+                instanceWithReferences.getXStream().allowTypes(typesArray);
+            }
+        }
+        if (CollectionUtils.isNotEmpty(wildcardTypes)) {
+            String[] wildcardTypesArray = wildcardTypes.toArray(new String[wildcardTypes.size()]);
+            getXStream().allowTypesByWildcard(wildcardTypesArray);
+            if (instanceWithReferences != null) {
+                instanceWithReferences.getXStream().allowTypesByWildcard(wildcardTypesArray);
+            }
+        }
+        if (CollectionUtils.isNotEmpty(typeHierarchies)) {
+            for (String typeHierarchy : typeHierarchies) {
+                try {
+                    Class<?> type = Class.forName(typeHierarchy);
+                    getXStream().allowTypeHierarchy(type);
+                    if (instanceWithReferences != null) {
+                        instanceWithReferences.getXStream().allowTypeHierarchy(type);
+                    }
+                } catch (Throwable t) {
+                    logger.error("Unable to allow custom type hierachy: " + typeHierarchy, t);
+                }
+            }
+        }
+    }
+
+    public void denyTypes(List<String> types, List<String> wildcardTypes) {
+        if (CollectionUtils.isNotEmpty(types)) {
+            String[] typesArray = types.toArray(new String[types.size()]);
+            getXStream().denyTypes(typesArray);
+            if (instanceWithReferences != null) {
+                instanceWithReferences.getXStream().denyTypes(typesArray);
+            }
+        }
+        if (CollectionUtils.isNotEmpty(wildcardTypes)) {
+            String[] wildcardTypesArray = wildcardTypes.toArray(new String[wildcardTypes.size()]);
+            getXStream().denyTypesByWildcard(wildcardTypesArray);
+            if (instanceWithReferences != null) {
+                instanceWithReferences.getXStream().denyTypesByWildcard(wildcardTypesArray);
+            }
+        }
     }
 
     @Override

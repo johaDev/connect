@@ -31,6 +31,7 @@ public abstract class ResourceProperties implements Serializable, Migratable, Pu
     private String name;
     private String description;
     private boolean includeWithGlobalScripts;
+    private boolean loadParentFirst;
 
     public ResourceProperties(String pluginPointName, String type) {
         this.pluginPointName = pluginPointName;
@@ -86,6 +87,14 @@ public abstract class ResourceProperties implements Serializable, Migratable, Pu
         this.includeWithGlobalScripts = includeWithGlobalScripts;
     }
 
+    public boolean isLoadParentFirst() {
+        return loadParentFirst;
+    }
+
+    public void setLoadParentFirst(boolean loadParentFirst) {
+        this.loadParentFirst = loadParentFirst;
+    }
+
     @Override
     public String toString() {
         return name;
@@ -105,12 +114,18 @@ public abstract class ResourceProperties implements Serializable, Migratable, Pu
     @Override public void migrate3_4_0(DonkeyElement element) {}
     @Override public void migrate3_5_0(DonkeyElement element) {}
     @Override public void migrate3_6_0(DonkeyElement element) {} 
-    @Override public void migrate3_7_0(DonkeyElement element) {}// @formatter:on
+    @Override public void migrate3_7_0(DonkeyElement element) {}
+    @Override public void migrate3_9_0(DonkeyElement element) {} 
+    @Override public void migrate3_11_0(DonkeyElement element) {}
+    @Override public void migrate3_11_1(DonkeyElement element) {} 
+    @Override public void migrate3_12_0(DonkeyElement element) {}// @formatter:on
 
     @Override
     public Map<String, Object> getPurgedProperties() {
         Map<String, Object> purgedProperties = new HashMap<String, Object>();
         purgedProperties.put("type", type);
+        purgedProperties.put("includeWithGlobalScripts", includeWithGlobalScripts);
+        purgedProperties.put("loadParentFirst", loadParentFirst);
         return purgedProperties;
     }
 }

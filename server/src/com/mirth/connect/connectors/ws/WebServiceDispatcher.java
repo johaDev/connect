@@ -34,6 +34,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import javax.xml.XMLConstants;
 import javax.xml.namespace.QName;
 import javax.xml.soap.AttachmentPart;
 import javax.xml.soap.SOAPMessage;
@@ -52,8 +53,8 @@ import javax.xml.ws.handler.MessageContext;
 import javax.xml.ws.soap.SOAPBinding;
 import javax.xml.ws.soap.SOAPFaultException;
 
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.collections.MapUtils;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -85,7 +86,9 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
 import org.apache.http.protocol.HttpContext;
-import org.apache.log4j.Logger;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.mirth.connect.donkey.model.channel.ConnectorProperties;
 import com.mirth.connect.donkey.model.event.ConnectionStatusEventType;
@@ -113,7 +116,7 @@ public class WebServiceDispatcher extends DestinationConnector {
     // The system property actually ends up being the maximum request count
     private static final int MAX_REDIRECTS = NumberUtils.toInt(System.getProperty("http.maxRedirects"), 20);
 
-    private Logger logger = Logger.getLogger(this.getClass());
+    private Logger logger = LogManager.getLogger(this.getClass());
     private EventController eventController = ControllerFactory.getFactory().createEventController();
     private ConfigurationController configurationController = ControllerFactory.getFactory().createConfigurationController();
     private TemplateValueReplacer replacer = new TemplateValueReplacer();
@@ -226,7 +229,10 @@ public class WebServiceDispatcher extends DestinationConnector {
     }
 
     private String sourceToXmlString(Source source) throws TransformerConfigurationException, TransformerException {
-        Transformer transformer = TransformerFactory.newInstance().newTransformer();
+    	TransformerFactory tf = TransformerFactory.newInstance();
+        tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+    	Transformer transformer = tf.newTransformer();
         transformer.setOutputProperty(OutputKeys.METHOD, "xml");
         transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
         Writer writer = new StringWriter();
@@ -463,7 +469,6 @@ public class WebServiceDispatcher extends DestinationConnector {
 
                 dispatch.getRequestContext().put(BindingProvider.USERNAME_PROPERTY, currentUsername);
                 dispatch.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, currentPassword);
-                logger.debug("Using authentication: username=" + currentUsername + ", password length=" + currentPassword.length());
             }
 
             // See: http://www.w3.org/TR/2000/NOTE-SOAP-20000508/#_Toc478383528

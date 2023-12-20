@@ -15,28 +15,30 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
-import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration2.PropertiesConfiguration;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
-import org.apache.log4j.Appender;
-import org.apache.log4j.Logger;
-import org.apache.velocity.app.Velocity;
+import org.apache.logging.log4j.ThreadContext;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.Appender;
+import org.apache.logging.log4j.core.filter.Filterable;
 import org.apache.velocity.runtime.RuntimeConstants;
 
 import com.mirth.connect.client.core.ConnectServiceUtil;
 import com.mirth.connect.client.core.ControllerException;
+import com.mirth.connect.client.core.PropertiesConfigurationUtil;
 import com.mirth.connect.donkey.server.Donkey;
 import com.mirth.connect.donkey.server.DonkeyConnectionPools;
 import com.mirth.connect.model.LibraryProperties;
@@ -60,6 +62,7 @@ import com.mirth.connect.server.controllers.UserController;
 import com.mirth.connect.server.logging.JuliToLog4JService;
 import com.mirth.connect.server.logging.LogOutputStream;
 import com.mirth.connect.server.logging.MirthLog4jFilter;
+import com.mirth.connect.server.util.NetworkUtil;
 import com.mirth.connect.server.util.ResourceUtil;
 import com.mirth.connect.server.util.SqlConfig;
 import com.mirth.connect.server.util.javascript.MirthContextFactory;
@@ -70,10 +73,10 @@ import com.mirth.connect.server.util.javascript.MirthContextFactory;
  */
 public class Mirth extends Thread {
 
-    private Logger logger = Logger.getLogger(this.getClass());
+    private Logger logger = LogManager.getLogger(this.getClass());
     private boolean running = false;
-    private PropertiesConfiguration mirthProperties = new PropertiesConfiguration();
-    private PropertiesConfiguration versionProperties = new PropertiesConfiguration();
+    private PropertiesConfiguration mirthProperties = PropertiesConfigurationUtil.create();
+    private PropertiesConfiguration versionProperties = PropertiesConfigurationUtil.create();
     private MirthWebServer webServer;
     private CommandQueue commandQueue = CommandQueue.getInstance();
     private EngineController engineController = ControllerFactory.getFactory().createEngineController();
@@ -88,6 +91,11 @@ public class Mirth extends Thread {
     private UsageController usageController = ControllerFactory.getFactory().createUsageController();
 
     private static List<Thread> shutdownHooks = new ArrayList<Thread>();
+
+    static {
+        // Disable Threadlocals for log4j 2.x, since it messes with the server log
+        System.setProperty("log4j2.enableThreadlocals", "false");
+    }
 
     public static void main(String[] args) {
         Mirth mirth = new Mirth();
@@ -113,6 +121,12 @@ public class Mirth extends Thread {
 
     public void run() {
         Thread.currentThread().setName("Main Server Thread");
+
+        // Add the host address as a variable that log4j can output
+        try {
+            ThreadContext.put("hostAddress", NetworkUtil.getIpv4HostAddress());
+        } catch (Exception e) {}
+
         initializeLogging();
 
         if (initResources()) {
@@ -171,8 +185,7 @@ public class Mirth extends Thread {
 
         try {
             mirthPropertiesStream = ResourceUtil.getResourceStream(this.getClass(), "mirth.properties");
-            mirthProperties.setDelimiterParsingDisabled(true);
-            mirthProperties.load(mirthPropertiesStream);
+            mirthProperties = PropertiesConfigurationUtil.create(mirthPropertiesStream);
         } catch (Exception e) {
             logger.error("could not load mirth.properties", e);
         } finally {
@@ -183,8 +196,7 @@ public class Mirth extends Thread {
 
         try {
             versionPropertiesStream = ResourceUtil.getResourceStream(this.getClass(), "version.properties");
-            versionProperties.setDelimiterParsingDisabled(true);
-            versionProperties.load(versionPropertiesStream);
+            versionProperties = PropertiesConfigurationUtil.create(versionPropertiesStream);
         } catch (Exception e) {
             logger.error("could not load version.properties", e);
         } finally {
@@ -212,14 +224,78 @@ public class Mirth extends Thread {
         configurationController.updatePropertiesConfiguration(mirthProperties);
 
         try {
-            DonkeyConnectionPools.getInstance().init(configurationController.getDatabaseSettings().getProperties());
-            SqlConfig.getInstance().getSqlSessionManager().startManagedSession();
-            SqlConfig.getInstance().getSqlSessionManager().getConnection();
+            int maxRetry = configurationController.getDatabaseSettings().getDatabaseConnectionMaxRetry();
+            int maxRetryTimeout = configurationController.getDatabaseSettings().getDatabaseConnectionMaxRetryWaitTimeInMs();
+            do {
+                try {
+                    DonkeyConnectionPools.getInstance().init(configurationController.getDatabaseSettings().getProperties());
+                    break;
+                }catch(Exception e) {
+                    maxRetry--;
+                    if(maxRetry >= 0) {
+                        try {
+                            logger.error("Error establishing connection to database, retrying startup in " + maxRetryTimeout + " milliseconds", e);
+                            Thread.sleep(maxRetryTimeout);
+                        }catch(InterruptedException ie) {
+                            //ignore
+                        }
+                    }else {
+                        throw e;
+                    }
+                }
 
+            }while(maxRetry >= 0);
+
+            maxRetry = configurationController.getDatabaseSettings().getDatabaseConnectionMaxRetry();
+            do {
+                try {
+                    if (!SqlConfig.getInstance().getSqlSessionManager().isManagedSessionStarted()) {
+                        SqlConfig.getInstance().getSqlSessionManager().startManagedSession();
+                    }
+                    SqlConfig.getInstance().getSqlSessionManager().getConnection();
+                    break;
+                }catch(Exception e) {
+                    maxRetry--;
+                    if(maxRetry >= 0) {
+                        try {
+                            logger.error("Error establishing connection to database, retrying startup in " + maxRetryTimeout + " milliseconds", e);
+                            Thread.sleep(maxRetryTimeout);
+                        }catch(InterruptedException ie) {
+                            //ignore
+                        }
+                    }else {
+                        throw e;
+                    }
+                }
+
+            }while(maxRetry >= 0);
+
+            maxRetry = configurationController.getDatabaseSettings().getDatabaseConnectionMaxRetry();
             if (SqlConfig.getInstance().isSplitReadWrite()) {
-                SqlConfig.getInstance().getReadOnlySqlSessionManager().startManagedSession();
-                SqlConfig.getInstance().getReadOnlySqlSessionManager().getConnection();
+                do {
+                    try {
+                        if (!SqlConfig.getInstance().getReadOnlySqlSessionManager().isManagedSessionStarted()) {
+                            SqlConfig.getInstance().getReadOnlySqlSessionManager().startManagedSession();
+                        }
+                        SqlConfig.getInstance().getReadOnlySqlSessionManager().getConnection();
+                        break;
+                    }catch(Exception e) {
+                        maxRetry--;
+                        if(maxRetry >= 0) {
+                            try {
+                                logger.error("Error establishing connection to database, retrying startup in " + maxRetryTimeout + " milliseconds", e);
+                                Thread.sleep(maxRetryTimeout);
+                            }catch(InterruptedException ie) {
+                                //ignore
+                            }
+                        }else {
+                            throw e;
+                        }
+                    }
+
+                }while(maxRetry >= 0);
             }
+
         } catch (Exception e) {
             // the getCause is needed since the wrapper exception is from the connection pool
             logger.error("Error establishing connection to database, aborting startup. " + e.getCause().getMessage());
@@ -233,30 +309,40 @@ public class Mirth extends Thread {
             }
         }
 
-        extensionController.removePropertiesForUninstalledExtensions();
+        // First make a check in case multiple servers are initializing at the same time
+        migrationController.checkStartupLockTable();
 
         try {
-            migrationController.migrate();
-        } catch (MigrationException e) {
-            logger.error("Failed to migrate database schema", e);
-            stopDatabase();
-            running = false;
-            return;
+            extensionController.removePropertiesForUninstalledExtensions();
+
+            try {
+                migrationController.migrate();
+            } catch (MigrationException e) {
+                logger.error("Failed to migrate database schema", e);
+                stopDatabase();
+                running = false;
+                return;
+            }
+
+            // MIRTH-3535 disable Quartz update check
+            System.setProperty("org.terracotta.quartz.skipUpdateCheck", "true");
+
+            configurationController.migrateKeystore();
+            extensionController.setDefaultExtensionStatus();
+            extensionController.uninstallExtensions();
+            migrationController.migrateExtensions();
+            extensionController.initPlugins();
+            migrationController.migrateSerializedData();
+            userController.resetUserStatus();
+        } finally {
+            migrationController.clearStartupLockTable();
         }
 
-        // MIRTH-3535 disable Quartz update check
-        System.setProperty("org.terracotta.quartz.skipUpdateCheck", "true");
-
-        configurationController.migrateKeystore();
-        extensionController.setDefaultExtensionStatus();
-        extensionController.uninstallExtensions();
-        migrationController.migrateExtensions();
-        extensionController.initPlugins();
-        migrationController.migrateSerializedData();
-        userController.resetUserStatus();
-
         // disable the velocity logging
-        Velocity.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS, "org.apache.velocity.runtime.log.NullLogSystem");
+        Logger velocityLogger = LogManager.getLogger(RuntimeConstants.DEFAULT_RUNTIME_LOG_NAME);
+        if (velocityLogger != null && velocityLogger.getLevel() == null && velocityLogger instanceof org.apache.logging.log4j.core.Logger) {
+            ((org.apache.logging.log4j.core.Logger) velocityLogger).setLevel(Level.OFF);
+        }
 
         eventController.dispatchEvent(new ServerEvent(configurationController.getServerId(), "Server startup"));
 
@@ -310,9 +396,10 @@ public class Mirth extends Thread {
         }
 
         configurationController.setStatus(ConfigurationController.STATUS_OK);
+        eventController.dispatchEvent(new ServerEvent(configurationController.getServerId(), "Server startup complete"));
         printSplashScreen();
 
-        // Send usage stats once a day.
+        // schedule usage statistics to be sent at startup and every 24 hours
         Timer timer = new Timer();
         timer.schedule(new UsageSenderTask(), 0, ConnectServiceUtil.MILLIS_PER_DAY);
     }
@@ -474,8 +561,8 @@ public class Mirth extends Thread {
     private String getWebServerUrl(String prefix, String host, int port, String contextPath) {
         if (StringUtils.equals(host, "0.0.0.0") || StringUtils.equals(host, "::")) {
             try {
-                host = InetAddress.getLocalHost().getHostAddress();
-            } catch (UnknownHostException e) {
+                host = NetworkUtil.getIpv4HostAddress();
+            } catch (Exception e) {
                 host = "localhost";
             }
         } else if (StringUtils.isEmpty(host)) {
@@ -538,8 +625,13 @@ public class Mirth extends Thread {
         JuliToLog4JService.getInstance().start();
 
         // Add a custom filter to appenders to suppress SAXParser warnings introduced in 7u40 (MIRTH-3548)
-        for (Enumeration<?> en = Logger.getRootLogger().getAllAppenders(); en.hasMoreElements();) {
-            ((Appender) en.nextElement()).addFilter(new MirthLog4jFilter());
+        Logger rootLogger = LogManager.getRootLogger();
+        if (rootLogger instanceof org.apache.logging.log4j.core.Logger) {
+            for (Appender appender : ((org.apache.logging.log4j.core.Logger) rootLogger).getAppenders().values()) {
+                if (appender instanceof Filterable) {
+                    ((Filterable) appender).addFilter(new MirthLog4jFilter());
+                }
+            }
         }
     }
 

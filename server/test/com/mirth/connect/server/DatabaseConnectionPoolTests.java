@@ -33,7 +33,7 @@ import java.util.HashMap;
 
 import javax.sql.DataSource;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.ibatis.io.Resources;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -219,7 +219,7 @@ public class DatabaseConnectionPoolTests {
         adminUser.setId(1);
         adminUser.setUsername("admin");
         doReturn(adminUser).when(userController).getUser(null, adminUser.getUsername());
-        userController.authorizeUser("admin", "admin");
+        userController.authorizeUser("admin", "admin", null);
 
         userController.getUserCredentials(1);
         userController.getUserPreferences(1, null);

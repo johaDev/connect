@@ -30,8 +30,9 @@ public class UIConstants {
     public static final String TITLE_TEXT = "Mirth Connect Administrator";
     public static final int MIRTH_WIDTH = 950;
     public static final int MIRTH_HEIGHT = 650;
-    public static final ImageIcon MIRTHCORP_LOGO = new ImageIcon(com.mirth.connect.client.ui.Frame.class.getResource("images/mirthcorp_24h.png"));
-    public static final ImageIcon MIRTHCONNECT_LOGO_GRAY = new ImageIcon(com.mirth.connect.client.ui.Frame.class.getResource("images/mirthconnect_gray_24h.png"));
+    public static final ImageIcon MIRTH_FAVICON = new ImageIcon(com.mirth.connect.client.ui.Frame.class.getResource("images/NG_MC_Icon_32x32.png"));
+    public static final ImageIcon MIRTHCORP_LOGO = new ImageIcon(com.mirth.connect.client.ui.Frame.class.getResource("images/MirthConnect_NLogo_RGB.png"));
+    public static final ImageIcon MIRTHCONNECT_LOGO_GRAY = new ImageIcon(com.mirth.connect.client.ui.Frame.class.getResource("images/MirthConnect_Logo_WM_White.png"));
     public static final String MIRTHCORP_TOOLTIP = "NextGen Healthcare";
     public static final String MIRTHCONNECT_TOOLTIP = "Mirth Connect";
     public static final String MIRTHCORP_URL = "https://www.nextgen.com/products-and-services/integration-engine";
@@ -74,9 +75,11 @@ public class UIConstants {
     public static final Font MONOSPACED_FONT = new Font(MONOSPACED_FONT_NAME, Font.PLAIN, 12);
 
     // issue link
-    public static final String ISSUE_TRACKER_LOCATION = "http://www.mirthcorp.com/community/issues/";
+    public static final String ISSUE_TRACKER_LOCATION = "https://github.com/nextgenhealthcare/connect/issues";
     // help link
-    public static String HELP_LOCATION = "http://www.mirthcorp.com/community/wiki/display/mirth";
+    public static String HELP_URL_LOCATION = "https://s3.amazonaws.com/downloads.mirthcorp.com/connect-user-guide/webhelp.json";
+    // help link
+    public static String HELP_DEFAULT_LOCATION = "https://github.com/nextgenhealthcare/connect/wiki";
     // user api
     public static String USER_API_LOCATION = "/javadocs/user-api/";
     // user api
