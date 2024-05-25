@@ -90,7 +90,7 @@ import com.mirth.connect.donkey.util.MessageMaps;
 import com.mirth.connect.donkey.util.Serializer;
 import com.mirth.connect.donkey.util.ThreadUtils;
 
-public class Channel implements Runnable {
+public class Channel implements IChannel, Runnable {
     private String channelId;
     private long localChannelId;
     private String name;
@@ -142,6 +142,7 @@ public class Channel implements Runnable {
 
     private Logger logger = LogManager.getLogger(getClass());
 
+    @Override
     public DebugOptions getDebugOptions() {
         return debugOptions;
     }
@@ -198,6 +199,7 @@ public class Channel implements Runnable {
         this.deployDate = deployedDate;
     }
 
+    @Override
     public Set<String> getResourceIds() {
         return resourceIds;
     }

@@ -17,7 +17,6 @@ import java.util.Map;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.mirth.connect.client.core.Version;
 import com.mirth.connect.donkey.model.message.ConnectorMessage;
 import com.mirth.connect.donkey.model.message.MapContent;
 import com.thoughtworks.xstream.XStream;
@@ -29,7 +28,7 @@ public class ObjectXMLSerializerTest {
     @BeforeClass
     public static void setup() throws Exception {
         try {
-            ObjectXMLSerializer.getInstance().init(Version.getLatest().toString());
+            ObjectXMLSerializer.getInstance().init("4.5.0");
         } catch (Exception e) {
             // Ignore if it has already been initialized
         }

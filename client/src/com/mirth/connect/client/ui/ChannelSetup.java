@@ -134,7 +134,7 @@ import com.mirth.connect.util.PropertyVerifier;
 import net.miginfocom.swing.MigLayout;
 
 /** The channel editor panel. Majority of the client application */
-public class ChannelSetup extends JPanel {
+public class ChannelSetup extends ChannelSetupBase {
     private static final String METADATA_NAME_COLUMN_NAME = "Column Name";
     private static final String METADATA_TYPE_COLUMN_NAME = "Type";
     private static final String METADATA_MAPPING_COLUMN_NAME = "Variable Mapping";
@@ -170,10 +170,45 @@ public class ChannelSetup extends JPanel {
     private int previousTab = -1;
 
     public ChannelSetup() {
-        this.parent = PlatformUI.MIRTH_FRAME;
+        this.parent = (Frame) PlatformUI.MIRTH_FRAME;
         initComponents();
         initToolTips();
         initLayout();
+    }
+    
+    @Override
+    public int getDefaultQueueBufferSize() {
+        return defaultQueueBufferSize;
+    }
+    
+    @Override
+    public Channel getCurrentChannel() {
+        return currentChannel;
+    }
+    
+    @Override
+    public Map<Integer, Map<String, String>> getResourceIds() {
+        return resourceIds;
+    }
+    
+    @Override
+    public int getLastModelIndex() {
+        return lastModelIndex;
+    }
+
+    @Override
+    public TransformerPane getTransformerPane() {
+        return transformerPane;
+    }
+    
+    @Override
+    public VariableList getDestinationVariableList() {
+        return destinationVariableList;
+    }
+
+    @Override
+    public ConnectorPanel getSourceConnectorPanel() {
+        return sourceConnectorPanel;
     }
 
     public void closePopupWindow() {
@@ -862,8 +897,8 @@ public class ChannelSetup extends JPanel {
             String decompiledDefaultScript = "";
 
             try {
-                decompiledSavedScript = context.decompileScript(context.compileString("function doScript() {" + savedScript + "}", PlatformUI.MIRTH_FRAME.mirthClient.getGuid(), 1, null), 1);
-                decompiledDefaultScript = context.decompileScript(context.compileString("function doScript() {" + defualtScript + "}", PlatformUI.MIRTH_FRAME.mirthClient.getGuid(), 1, null), 1);
+                decompiledSavedScript = context.decompileScript(context.compileString("function doScript() {" + savedScript + "}", PlatformUI.MIRTH_FRAME.getClient().getGuid(), 1, null), 1);
+                decompiledDefaultScript = context.decompileScript(context.compileString("function doScript() {" + defualtScript + "}", PlatformUI.MIRTH_FRAME.getClient().getGuid(), 1, null), 1);
             } catch (Exception e) {
                 //If any script fails to compile for any reason, we can just assume they aren't equal.
                 return false;
@@ -875,6 +910,7 @@ public class ChannelSetup extends JPanel {
         }
     }
 
+    @Override
     public void decorateConnectorType(ConnectorTypeDecoration connectorTypeDecoration, boolean isDestination) {
         if (connectorTypeDecoration != null && isDestination && destinationTable.getSelectedModelIndex() >= 0) {
             ConnectorTypeData connectorTypeData = (ConnectorTypeData) destinationTable.getModel().getValueAt(destinationTable.getSelectedModelIndex(), destinationTable.getColumnModelIndex(CONNECTOR_TYPE_COLUMN_NAME));
@@ -1028,10 +1064,12 @@ public class ChannelSetup extends JPanel {
         destinationConnectorPanel.updateQueueWarning(messageStorageMode);
     }
 
+    @Override
     public MessageStorageMode getMessageStorageMode() {
         return MessageStorageMode.fromInt(messageStorageSlider.getValue());
     }
 
+    @Override
     public void updateQueueWarning(MessageStorageMode messageStorageMode) {
         String errorString = getQueueErrorString(messageStorageMode);
 
@@ -1113,6 +1151,7 @@ public class ChannelSetup extends JPanel {
         return scriptMap;
     }
 
+    @Override
     public void saveSourcePanel() {
         currentChannel.getSourceConnector().setProperties(sourceConnectorPanel.getProperties());
         
@@ -1121,6 +1160,7 @@ public class ChannelSetup extends JPanel {
         }
     }
 
+    @Override
     public void saveDestinationPanel() {
         Connector temp;
 
@@ -2446,7 +2486,7 @@ public class ChannelSetup extends JPanel {
 
     private void initLayout() {
         setLayout(new MigLayout("insets 0, novisualpadding, hidemode 3, fill"));
-
+        
         channelPropertiesPanel.setLayout(new MigLayout("insets 0 10 10 10, novisualpadding, hidemode 3, fill, gap 6", "[]12[]12[][grow]"));
         channelPropertiesPanel.add(nameLabel, "right");
         channelPropertiesPanel.add(nameField, "w 185!");
@@ -2534,7 +2574,7 @@ public class ChannelSetup extends JPanel {
         channelView.addTab("Source", sourcePanel);
         channelView.addTab("Destinations", destinationsPanel);
         channelView.addTab("Scripts", scriptsPanel);
-        add(channelView, "grow, h 600, w 600");
+        add(channelView, "grow, h 600, w 600");        
     }
 
     private void scriptsComponentShown(ComponentEvent evt) {
@@ -3038,6 +3078,7 @@ public class ChannelSetup extends JPanel {
     }
 
     /** Sets the destination variable list from the transformer steps */
+    @Override
     public void setDestinationVariableList() {
         int destination = destinationTable.getSelectedModelIndex();
         Set<String> concatenatedRuleVariables = getMultipleDestinationRules(currentChannel.getDestinationConnectors().get(destination));
@@ -3091,6 +3132,7 @@ public class ChannelSetup extends JPanel {
     /**
      * Returns the required source data type of this channel.
      */
+    @Override
     public String getRequiredInboundDataType() {
         return sourceConnectorPanel.getRequiredInboundDataType();
     }
@@ -3098,6 +3140,7 @@ public class ChannelSetup extends JPanel {
     /**
      * Returns the required source data type of this channel.
      */
+    @Override
     public String getRequiredOutboundDataType() {
         return sourceConnectorPanel.getRequiredOutboundDataType();
     }
@@ -3105,6 +3148,7 @@ public class ChannelSetup extends JPanel {
     /**
      * Returns the initial, or default, source inbound data type of this channel.
      */
+    @Override
     public String getInitialInboundDataType() {
         return sourceConnectorPanel.getInitialInboundDataType();
     }
@@ -3119,6 +3163,7 @@ public class ChannelSetup extends JPanel {
     /*
      * Set Data Types for source inbound and outbound which also means destination inbound
      */
+    @Override
     public void checkAndSetSourceDataType() {
         // Inbound
         String requiredInboundDataType = getRequiredInboundDataType();
@@ -3151,6 +3196,7 @@ public class ChannelSetup extends JPanel {
     /**
      * Returns the required data type for the selected destination of this channel.
      */
+    @Override
     public String getRequiredOutboundDestinationDataType() {
         return destinationConnectorPanel.getRequiredOutboundDataType();
     }
@@ -3167,6 +3213,7 @@ public class ChannelSetup extends JPanel {
      * Returns the initial, or default, inbound data type for the selected destination response of
      * this channel.
      */
+    @Override
     public String getInitialInboundResponseDataType() {
         return destinationConnectorPanel.getInitialInboundResponseDataType();
     }
@@ -3175,6 +3222,7 @@ public class ChannelSetup extends JPanel {
      * Returns the initial, or default, outbound data type for the selected destination response of
      * this channel.
      */
+    @Override
     public String getInitialOutboundResponseDataType() {
         return destinationConnectorPanel.getInitialOutboundResponseDataType();
     }
@@ -3182,6 +3230,7 @@ public class ChannelSetup extends JPanel {
     /**
      * Set Data types specified by selected destination for destination and response
      */
+    @Override
     public void checkAndSetDestinationAndResponseDataType() {
         // Destination inbound set by source outbound
 

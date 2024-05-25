@@ -29,7 +29,6 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.mirth.connect.client.core.Client;
 import com.mirth.connect.client.core.ClientException;
-import com.mirth.connect.client.core.ConnectServiceUtil;
 import com.mirth.connect.client.core.UnauthorizedException;
 import com.mirth.connect.client.core.api.servlets.UserServletInterface;
 import com.mirth.connect.client.ui.util.DisplayUtil;
@@ -39,6 +38,7 @@ import com.mirth.connect.model.PublicServerSettings;
 import com.mirth.connect.model.User;
 import com.mirth.connect.model.converters.ObjectXMLSerializer;
 import com.mirth.connect.plugins.MultiFactorAuthenticationClientPlugin;
+import com.mirth.connect.util.ConnectServiceUtil;
 import com.mirth.connect.util.MirthSSLUtil;
 
 public class LoginPanel extends javax.swing.JFrame {
@@ -636,7 +636,7 @@ public class LoginPanel extends javax.swing.JFrame {
                     PlatformUI.MIRTH_FRAME.alertThrowable(PlatformUI.MIRTH_FRAME, e);
                 }
 
-                PlatformUI.MIRTH_FRAME.sendUsageStatistics();
+                ((Frame) PlatformUI.MIRTH_FRAME).sendUsageStatistics();
                 
                 return true;
             }

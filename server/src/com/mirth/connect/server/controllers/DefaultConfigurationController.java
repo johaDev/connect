@@ -74,7 +74,6 @@ import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AuthorityKeyIdentifier;
 import org.bouncycastle.asn1.x509.BasicConstraints;
@@ -94,8 +93,8 @@ import com.mirth.commons.encryption.Encryptor;
 import com.mirth.commons.encryption.KeyEncryptor;
 import com.mirth.commons.encryption.Output;
 import com.mirth.connect.client.core.ControllerException;
-import com.mirth.connect.client.core.PropertiesConfigurationUtil;
 import com.mirth.connect.donkey.model.DatabaseConstants;
+import com.mirth.connect.donkey.model.message.batch.BatchStreamReader;
 import com.mirth.connect.donkey.server.data.DonkeyStatisticsUpdater;
 import com.mirth.connect.donkey.util.DonkeyElement;
 import com.mirth.connect.model.Channel;
@@ -115,15 +114,27 @@ import com.mirth.connect.model.ServerSettings;
 import com.mirth.connect.model.UpdateSettings;
 import com.mirth.connect.model.converters.DocumentSerializer;
 import com.mirth.connect.model.converters.ObjectXMLSerializer;
+import com.mirth.connect.model.transmission.batch.DefaultBatchStreamReader;
+import com.mirth.connect.plugins.BasicModeProvider;
+import com.mirth.connect.plugins.TransmissionModeProvider;
 import com.mirth.connect.plugins.directoryresource.DirectoryResourceProperties;
 import com.mirth.connect.server.ExtensionLoader;
+import com.mirth.connect.server.alert.Alert;
+import com.mirth.connect.server.alert.action.UserProtocol;
+import com.mirth.connect.server.extprops.ExtensionStatusFile;
+import com.mirth.connect.server.extprops.ExtensionStatuses;
 import com.mirth.connect.server.mybatis.KeyValuePair;
 import com.mirth.connect.server.tools.ClassPathResource;
 import com.mirth.connect.server.util.DatabaseUtil;
 import com.mirth.connect.server.util.PasswordRequirementsChecker;
 import com.mirth.connect.server.util.ResourceUtil;
+import com.mirth.connect.server.util.ServerSMTPConnection;
+import com.mirth.connect.server.util.ServerSMTPConnectionFactory;
 import com.mirth.connect.server.util.SqlConfig;
 import com.mirth.connect.server.util.StatementLock;
+import com.mirth.connect.server.util.javascript.JavaScriptCoreUtil;
+import com.mirth.connect.server.util.javascript.JavaScriptScopeUtil;
+import com.mirth.connect.server.util.javascript.JavaScriptUtil;
 import com.mirth.connect.util.ChannelDependencyException;
 import com.mirth.connect.util.ChannelDependencyGraph;
 import com.mirth.connect.util.ConfigurationProperty;
@@ -131,6 +142,7 @@ import com.mirth.connect.util.ConnectionTestResponse;
 import com.mirth.connect.util.JavaScriptSharedUtil;
 import com.mirth.connect.util.MigrationUtil;
 import com.mirth.connect.util.MirthSSLUtil;
+import com.mirth.connect.util.PropertiesConfigurationUtil;
 
 /**
  * The ConfigurationController provides access to the Mirth configuration.
@@ -202,7 +214,7 @@ public class DefaultConfigurationController extends ConfigurationController {
     public DefaultConfigurationController() {
 
     }
-    
+
     public static ConfigurationController create() {
         synchronized (DefaultConfigurationController.class) {
             if (instance == null) {
@@ -214,7 +226,7 @@ public class DefaultConfigurationController extends ConfigurationController {
                     try {
                         instance.getClass().getMethod("initialize").invoke(instance);
                     } catch (Exception e) {
-                    	LogManager.getLogger(DefaultConfigurationController.class).error("Error calling initialize method in DefaultConfigurationController", e);
+                        LogManager.getLogger(DefaultConfigurationController.class).error("Error calling initialize method in DefaultConfigurationController", e);
                     }
                 }
             }
@@ -226,6 +238,8 @@ public class DefaultConfigurationController extends ConfigurationController {
         InputStream versionPropertiesStream = null;
 
         try {
+            initializeCoreClasses();
+
             // Delimiter parsing disabled by default so getString() returns the whole property, even if there are commas
             mirthConfigBuilder = PropertiesConfigurationUtil.createBuilder(new File(ClassPathResource.getResourceURI("mirth.properties")));
             mirthConfig = mirthConfigBuilder.getConfiguration();
@@ -561,12 +575,12 @@ public class DefaultConfigurationController extends ConfigurationController {
         String environmentName = getProperty(PROPERTIES_CORE, "environment.name");
         serverName = getProperty(PROPERTIES_CORE + "." + serverId, "server.name");
         Properties serverSettings = getPropertiesForGroup(PROPERTIES_CORE);
-        return new ServerSettings(environmentName, serverName, serverSettings);
+        return new ServerSettings(environmentName, serverName, serverSettings, ObjectXMLSerializer.getInstance());
     }
-    
+
     @Override
     public PublicServerSettings getPublicServerSettings() throws ControllerException {
-        return new PublicServerSettings(getServerSettings());
+        return new PublicServerSettings(getServerSettings(), ObjectXMLSerializer.getInstance());
     }
 
     @Override
@@ -580,11 +594,11 @@ public class DefaultConfigurationController extends ConfigurationController {
     }
 
     @Override
-    public void setServerSettings(ServerSettings settings) throws ControllerException {        
-        Properties properties = settings.getProperties();
+    public void setServerSettings(ServerSettings settings) throws ControllerException {
+        Properties properties = settings.getProperties(ObjectXMLSerializer.getInstance());
 
         validateServerSettings(properties);
-        
+
         String environmentName = settings.getEnvironmentName();
         if (environmentName != null) {
             saveProperty(PROPERTIES_CORE, "environment.name", environmentName);
@@ -600,15 +614,15 @@ public class DefaultConfigurationController extends ConfigurationController {
             saveProperty(PROPERTIES_CORE, (String) name, (String) properties.get(name));
         }
     }
-    
-    public void validateServerSettings(Properties properties) throws ControllerException {  
+
+    public void validateServerSettings(Properties properties) throws ControllerException {
         Boolean autoLogoutEnabled = false;
         Integer autoLogoutTime = null;
-        
+
         if (properties.getProperty("administratorautologoutinterval.enabled") != null) {
             autoLogoutEnabled = intToBooleanObject(properties.getProperty("administratorautologoutinterval.enabled"), false);
         }
-        
+
         if (autoLogoutEnabled == true) {
             try {
                 autoLogoutTime = Integer.parseInt(properties.getProperty("administratorautologoutinterval.field"));
@@ -620,7 +634,7 @@ public class DefaultConfigurationController extends ConfigurationController {
             }
         }
     }
-    
+
     /**
      * Takes a String and returns a Boolean Object. "1" = true "0" = false null or not a number =
      * defaultValue
@@ -646,12 +660,12 @@ public class DefaultConfigurationController extends ConfigurationController {
 
     @Override
     public UpdateSettings getUpdateSettings() throws ControllerException {
-        return new UpdateSettings(getPropertiesForGroup(PROPERTIES_CORE));
+        return new UpdateSettings(getPropertiesForGroup(PROPERTIES_CORE), ObjectXMLSerializer.getInstance());
     }
 
     @Override
     public void setUpdateSettings(UpdateSettings settings) throws ControllerException {
-        Properties properties = settings.getProperties();
+        Properties properties = settings.getProperties(ObjectXMLSerializer.getInstance());
         for (Object name : properties.keySet()) {
             saveProperty(PROPERTIES_CORE, (String) name, (String) properties.get(name));
         }
@@ -717,8 +731,8 @@ public class DefaultConfigurationController extends ConfigurationController {
 
     List<DriverInfo> parseDbdriversXml(Reader reader) throws Exception {
         List<DriverInfo> drivers = new ArrayList<DriverInfo>();
-		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-		dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         Document document = dbf.newDocumentBuilder().parse(new InputSource(reader));
         Element driversElement = document.getDocumentElement();
 
@@ -1217,7 +1231,7 @@ public class DefaultConfigurationController extends ConfigurationController {
             /*
              * Load the encryption settings so that they can be referenced client side.
              */
-            encryptionConfig = new EncryptionSettings(ConfigurationConverter.getProperties(mirthConfig));
+            encryptionConfig = new EncryptionSettings(ConfigurationConverter.getProperties(mirthConfig), ObjectXMLSerializer.getInstance());
 
             File keyStoreFile = new File(mirthConfig.getString("keystore.path"));
             char[] keyStorePassword = mirthConfig.getString("keystore.storepass").toCharArray();
@@ -1288,7 +1302,7 @@ public class DefaultConfigurationController extends ConfigurationController {
     @Override
     public void initializeDatabaseSettings() {
         try {
-            databaseConfig = new DatabaseSettings(ConfigurationConverter.getProperties(mirthConfig));
+            databaseConfig = new DatabaseSettings(ConfigurationConverter.getProperties(mirthConfig), ObjectXMLSerializer.getInstance());
 
             // dir.base is not included in mirth.properties, so set it manually
             databaseConfig.setDirBase(getBaseDir());
@@ -1550,8 +1564,7 @@ public class DefaultConfigurationController extends ConfigurationController {
             logger.debug("generated new certificate with serial number: " + ((X509Certificate) sslCert).getSerialNumber());
 
             // add the generated SSL cert to the keystore using the key password
-            keyStore.setKeyEntry(certificateAlias, sslKeyPair.getPrivate(), keyPassword, new Certificate[] {
-                    sslCert });
+            keyStore.setKeyEntry(certificateAlias, sslKeyPair.getPrivate(), keyPassword, new Certificate[] {sslCert});
         } else {
             logger.debug("found certificate in keystore");
         }
@@ -1623,6 +1636,17 @@ public class DefaultConfigurationController extends ConfigurationController {
         }
     }
 
+    private void initializeCoreClasses() {
+        Alert.USER_PROTOCOL_CLASS = UserProtocol.class;
+        UserController.DEFAULT_USER_CONTROLLER_CLASS = DefaultUserController.class;
+        JavaScriptCoreUtil.JAVASCRIPT_UTIL_CLASS = JavaScriptUtil.class;
+        JavaScriptCoreUtil.JAVASCRIPT_SCOPE_UTIL_CLASS = JavaScriptScopeUtil.class;
+        ExtensionStatuses.DEFAULT_EXTENSION_STATUS_PROVIDER = ExtensionStatusFile.class;
+        TransmissionModeProvider.BASIC_MODE_PROVIDER = BasicModeProvider.class;
+        BatchStreamReader.DEFAULT_BATCH_STREAM_READER = DefaultBatchStreamReader.class;
+        ServerSMTPConnectionFactory.SERVER_SMTP_CONNECTION = ServerSMTPConnection.class;
+    }
+
     @Override
     public ConnectionTestResponse sendTestEmail(Properties properties) throws Exception {
         String portString = properties.getProperty("port");
@@ -1691,7 +1715,7 @@ public class DefaultConfigurationController extends ConfigurationController {
             email.setMsg("Receipt of this email confirms that mail originating from this Mirth Connect Server is capable of reaching its intended destination.\n\nSMTP Configuration:\n- Host: " + host + "\n- Port: " + port);
 
             email.send();
-            return new ConnectionTestResponse(ConnectionTestResponse.Type.SUCCESS, "Sucessfully sent test email to: " + to);
+            return new ConnectionTestResponse(ConnectionTestResponse.Type.SUCCESS, "Successfully sent test email to: " + to);
         } catch (EmailException e) {
             return new ConnectionTestResponse(ConnectionTestResponse.Type.FAILURE, e.getMessage());
         }

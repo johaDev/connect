@@ -37,6 +37,7 @@ import com.mirth.connect.client.core.ControllerException;
 import com.mirth.connect.donkey.model.DonkeyException;
 import com.mirth.connect.donkey.model.message.ConnectorMessage;
 import com.mirth.connect.donkey.model.message.ContentType;
+import com.mirth.connect.donkey.model.message.DataType;
 import com.mirth.connect.donkey.model.message.Message;
 import com.mirth.connect.donkey.model.message.MessageContent;
 import com.mirth.connect.donkey.model.message.RawMessage;
@@ -48,7 +49,6 @@ import com.mirth.connect.donkey.server.channel.Channel;
 import com.mirth.connect.donkey.server.channel.ChannelException;
 import com.mirth.connect.donkey.server.controllers.ChannelController;
 import com.mirth.connect.donkey.server.data.DonkeyDao;
-import com.mirth.connect.donkey.server.message.DataType;
 import com.mirth.connect.donkey.util.MapUtil;
 import com.mirth.connect.donkey.util.xstream.SerializerException;
 import com.mirth.connect.model.MessageImportResult;
@@ -333,7 +333,7 @@ public class DonkeyMessageController extends MessageController {
             }
         }
 
-        Channel channel = engineController.getDeployedChannel(channelId);
+        Channel channel = (Channel) engineController.getDeployedChannel(channelId);
         if (channel != null) {
             // Invalidate the queue buffer to ensure stats are updated.
             channel.invalidateQueues();
@@ -342,7 +342,7 @@ public class DonkeyMessageController extends MessageController {
 
     public void reprocessMessages(String channelId, MessageFilter filter, boolean replace, Collection<Integer> reprocessMetaDataIds) throws ControllerException {
         EngineController engineController = ControllerFactory.getFactory().createEngineController();
-        Channel deployedChannel = engineController.getDeployedChannel(channelId);
+        Channel deployedChannel = (Channel) engineController.getDeployedChannel(channelId);
         if (deployedChannel == null) {
             throw new ControllerException("Channel is no longer deployed!");
         }

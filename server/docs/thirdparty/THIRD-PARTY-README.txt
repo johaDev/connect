@@ -16,7 +16,6 @@ APACHE-LICENSE-2.0.txt):
 	Apache Tomcat Jasper Expression Language Impl 8.5.70 [Mirth Connect only]
 	Apache Velocity Engine 2.2
 	Apache Velocity Tools 3.0
-	Apache XMLBeans [Mirth Connect only]
 	AWS SDK v2 for Java [Mirth Connect only] (https://github.com/aws/aws-sdk-java-v2)
 	Bean Validation API 1.1.0 (http://beanvalidation.org/)
 	Error Prone Annotations 2.3.4 [Mirth Connect only] (https://github.com/google/error-prone)
@@ -136,9 +135,8 @@ the Common Development and Distribution License version 1.1 (see CDDL-1.1.txt):
 	JavaBeans Activation Framework API 1.2.0 (source code can be downloaded
 	from: https://github.com/javaee/activation/tree/JAF-1_2_0)
 	
-	JavaMail API 1.5.0 (source code can be downloaded from:
-	http://search.maven.org/remotecontent?filepath=com/sun/mail/javax.mail/1.5.0
-	/javax.mail-1.5.0-sources.jar)
+	JavaMail API 1.5.6 (source code can be downloaded from:
+	https://mvnrepository.com/artifact/com.sun.mail/javax.mail)
 	
 	JAXB TXW Runtime 2.4.0-b180725.0427 (source code can be downloaded from:
 	https://github.com/javaee/jaxb-v2/tree/master/jaxb-ri/txw)
@@ -237,24 +235,6 @@ Or in the Mirth Connect source code distribution, it can be found at:
 --------------------------------------------------------------------------------
 
 
-Mirth Connect includes the following software:
-
-	Apache XmlBeans
-
-Licensing information for this software can be found in the LICENSE.txt and
-NOTICE.txt files contained within the xbean-fixed-2.4.0.jar file. This file can
-be found within the Mirth Connect installation folder at:
-
-	[Mirth Connect Install Folder]/extensions/ws/lib
-
-Or in the Mirth Connect source code distribution, it can be found at:
-
-	[Mirth Connect Server Source Folder]/lib/extensions/ws
-
-
---------------------------------------------------------------------------------
-
-
 Mirth Connect includes the jTDS JDBC driver version 1.3.1. This library and its
 use are covered by the LGPL version 2.1 (see LGPL-2.1.txt). The library source
 code is available at http://jtds.sourceforge.net/. The following file has
@@ -270,19 +250,11 @@ been changed:
 --------------------------------------------------------------------------------
 
 
-Mirth Connect includes the MySQL Connector/J JDBC Driver version 5.1.25. This 
+Mirth Connect includes the MySQL Connector/J JDBC Driver version 8.3.0. This 
 library and its use are covered by the GPL version 2 with Oracle's Free and 
 Open Source Software ("FOSS") License Exception (see 
 MYSQL-CONNECTOR-LICENSE.txt). The library source code is available at 
-http://mirrors.ibiblio.org/maven2/mysql/mysql-connector-j/8.1.0/src/.
-
-
---------------------------------------------------------------------------------
-
-
-Mirth Connect includes SoapUI version 4.0.1. This library and its use are
-covered by the LGPL version 2.1 (see LGPL-2.1.txt). The library source code is
-available at http://www.soapui.org/.
+https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-j-8.3.0-1.sl15.src.rpm.
 
 
 --------------------------------------------------------------------------------
@@ -591,16 +563,14 @@ Mirth Connect.
 --------------------------------------------------------------------------------
 
 
-The license below pertains to JDOM version 1.1.1, which is included with Mirth
+The license below pertains to JDOM2 version 2.0.6.1, which is included with Mirth
 Connect.
 
 =================== Beginning of License ===================
 
 /*-- 
 
- $Id: LICENSE.txt,v 1.11 2004/02/06 09:32:57 jhunter Exp $
-
- Copyright (C) 2000-2004 Jason Hunter & Brett McLaughlin.
+ Copyright (C) 2000-2012 Jason Hunter & Brett McLaughlin.
  All rights reserved.
  
  Redistribution and use in source and binary forms, with or without

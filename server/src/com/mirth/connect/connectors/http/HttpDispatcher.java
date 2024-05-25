@@ -90,6 +90,8 @@ import org.apache.http.protocol.HttpContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.mirth.connect.connectors.core.http.HttpConfiguration;
+import com.mirth.connect.connectors.core.http.IHttpDispatcher;
 import com.mirth.connect.donkey.model.channel.ConnectorProperties;
 import com.mirth.connect.donkey.model.event.ConnectionStatusEventType;
 import com.mirth.connect.donkey.model.event.ErrorEventType;
@@ -110,7 +112,7 @@ import com.mirth.connect.util.CharsetUtils;
 import com.mirth.connect.util.ErrorMessageBuilder;
 import com.mirth.connect.util.HttpUtil;
 
-public class HttpDispatcher extends DestinationConnector {
+public class HttpDispatcher extends DestinationConnector implements IHttpDispatcher {
 
     private static final String PROXY_CONTEXT_KEY = "dispatcherProxy";
     private static final Pattern AUTH_HEADER_PATTERN = Pattern.compile("([^\\s=,]+)\\s*=\\s*([^=,;\"\\s]+|\"([^\"]|\\\\[\\s\\S])*(?<!\\\\)\")");
@@ -123,6 +125,7 @@ public class HttpDispatcher extends DestinationConnector {
     protected TemplateValueReplacer replacer = new TemplateValueReplacer();
 
     private Map<Long, CloseableHttpClient> clients = new ConcurrentHashMap<Long, CloseableHttpClient>();
+    private Map<Long, Object> userTokens = new ConcurrentHashMap<Long, Object>();
     private HttpConfiguration configuration;
     private RegistryBuilder<ConnectionSocketFactory> socketFactoryRegistry;
     private Map<String, String[]> binaryMimeTypesArrayMap;
@@ -169,6 +172,7 @@ public class HttpDispatcher extends DestinationConnector {
         }
 
         clients.clear();
+        userTokens.clear();
     }
 
     @Override
@@ -178,6 +182,7 @@ public class HttpDispatcher extends DestinationConnector {
         }
 
         clients.clear();
+        userTokens.clear();
     }
 
     @Override
@@ -316,12 +321,26 @@ public class HttpDispatcher extends DestinationConnector {
                 context.setAttribute(PROXY_CONTEXT_KEY, new HttpHost(httpDispatcherProperties.getProxyAddress(), Integer.parseInt(httpDispatcherProperties.getProxyPort())));
             }
 
+            Object userToken = userTokens.get(dispatcherId);
+            logger.debug("cached user token: " + userToken);
+            if (userToken != null) {
+                context.setUserToken(userToken);
+            }
+
             // execute the method
             logger.debug("executing method: type=" + httpMethod.getMethod() + ", uri=" + httpMethod.getURI().toString());
             httpResponse = client.execute(target, httpMethod, context);
             StatusLine statusLine = httpResponse.getStatusLine();
             int statusCode = statusLine.getStatusCode();
             logger.debug("received status code: " + statusCode);
+
+            userToken = context.getUserToken();
+            logger.debug("updating user token to: " + userToken);
+            if (userToken != null) {
+                userTokens.put(dispatcherId, userToken);
+            } else {
+                userTokens.remove(dispatcherId);
+            }
 
             Map<String, List<String>> headers = new HashMap<String, List<String>>();
             for (Header header : httpResponse.getAllHeaders()) {
@@ -407,6 +426,7 @@ public class HttpDispatcher extends DestinationConnector {
                 HttpUtil.closeVeryQuietly(httpResponse);
                 HttpClientUtils.closeQuietly(client);
                 clients.remove(dispatcherId);
+                userTokens.remove(dispatcherId);
             }
         } finally {
             try {
@@ -435,6 +455,7 @@ public class HttpDispatcher extends DestinationConnector {
         return configurationController.getProperty(getConnectorProperties().getProtocol(), "httpConfigurationClass");
     }
 
+    @Override
     public RegistryBuilder<ConnectionSocketFactory> getSocketFactoryRegistry() {
         return socketFactoryRegistry;
     }
