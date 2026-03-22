@@ -51,7 +51,7 @@ public class ExtensionStatuses implements ExtensionStatusInterface {
         }
 
         try {
-            InputStream is = new FileInputStream(new File("./conf/mirth.properties"));
+        	InputStream is = new FileInputStream(new File("./conf/mirth.properties"));
             try {
                 mirthProperties.load(is);
             } finally {

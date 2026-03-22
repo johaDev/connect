@@ -206,16 +206,12 @@
 		<jar destfile="${connectors.http}/http-shared.jar" basedir="${classes}">
 			<include name="com/mirth/connect/connectors/http/HttpReceiverProperties.class" />
 			<include name="com/mirth/connect/connectors/http/HttpDispatcherProperties.class" />
-			<include name="com/mirth/connect/connectors/http/HttpStaticResource.class" />
-			<include name="com/mirth/connect/connectors/http/HttpStaticResource$ResourceType.class" />
 		</jar>
 		<jar destfile="${connectors.http}/http-server.jar">
 			<fileset dir="${classes}">
 				<include name="com/mirth/connect/connectors/http/**" />
 				<exclude name="com/mirth/connect/connectors/http/HttpReceiverProperties.class" />
 				<exclude name="com/mirth/connect/connectors/http/HttpDispatcherProperties.class" />
-				<exclude name="com/mirth/connect/connectors/http/HttpStaticResource.class" />
-				<exclude name="com/mirth/connect/connectors/http/HttpStaticResource$ResourceType.class" />
 			</fileset>
 		</jar>
 
@@ -401,6 +397,9 @@
 
 		<!-- set the version on all connectors -->
 		<replace dir="${extensions}" token="@mirthversion" value="${version}">
+			<include name="**/*.xml" />
+		</replace>
+		<replace dir="${extensions}" token="@pluginbuildnumber" value="${buildnumber}">
 			<include name="**/*.xml" />
 		</replace>
 	</target>
@@ -912,6 +911,9 @@
 		<replace dir="${extensions}" token="@mirthversion" value="${version}">
 			<include name="**/*.xml" />
 		</replace>
+		<replace dir="${extensions}" token="@pluginbuildnumber" value="${buildnumber}">
+			<include name="**/*.xml" />
+		</replace>
 	</target>
 
 	<target name="create-setup" depends="init">
@@ -1217,7 +1219,7 @@
 		<jacoco:coverage destfile="${code-coverage-reports}/jacoco.exec" xmlns:jacoco="antlib:org.jacoco.ant" exclclassloader="sun.reflect.DelegatingClassLoader:javassist.Loader" >
 			<junit haltonfailure="false" fork="true" forkmode="once">
 				<jvmarg value="-Xms128m" />
-				<jvmarg value="-Xmx1024m" />
+				<jvmarg value="-Xmx2048m" />
 				<!-- Uncomment the following and add additional dashes in front of the arguments to allow Java 9+
 					<jvmarg value="-add-opens=java.base/java.util=ALL-UNNAMED" />
 					<jvmarg value="-add-opens=java.base/java.lang=ALL-UNNAMED" />

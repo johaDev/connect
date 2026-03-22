@@ -108,9 +108,9 @@ import com.mirth.connect.client.core.UnauthorizedException;
 import com.mirth.connect.client.core.Version;
 import com.mirth.connect.client.core.VersionMismatchException;
 import com.mirth.connect.client.ui.DashboardPanel.TableState;
+import com.mirth.connect.client.ui.alert.AlertActionPane;
 import com.mirth.connect.client.ui.alert.AlertChannelPane;
 import com.mirth.connect.client.ui.alert.AlertEditPanel;
-import com.mirth.connect.client.ui.alert.AlertActionPane;
 import com.mirth.connect.client.ui.alert.AlertPanel;
 import com.mirth.connect.client.ui.alert.DefaultAlertEditPanel;
 import com.mirth.connect.client.ui.alert.DefaultAlertPanel;
@@ -120,12 +120,18 @@ import com.mirth.connect.client.ui.browsers.message.MessageBrowserBase;
 import com.mirth.connect.client.ui.browsers.message.MessageBrowserChannelModel;
 import com.mirth.connect.client.ui.codetemplate.CodeTemplatePanel;
 import com.mirth.connect.client.ui.codetemplate.CodeTemplatePanelBase;
+import com.mirth.connect.client.ui.components.rsta.MirthRTextScrollPane;
 import com.mirth.connect.client.ui.components.rsta.ac.js.MirthJavaScriptLanguageSupport;
 import com.mirth.connect.client.ui.dependencies.ChannelDependenciesWarningDialog;
+import com.mirth.connect.client.ui.editors.TabbedTemplatePanel;
 import com.mirth.connect.client.ui.extensionmanager.ExtensionManagerPanel;
 import com.mirth.connect.client.ui.reference.ReferenceListFactory;
 import com.mirth.connect.client.ui.tag.SettingsPanelTags;
 import com.mirth.connect.client.ui.util.DisplayUtil;
+import com.mirth.connect.connectors.core.Constants;
+import com.mirth.connect.connectors.http.HttpDispatcherProperties;
+import com.mirth.connect.connectors.http.HttpReceiverProperties;
+import com.mirth.connect.connectors.ws.WebServiceDispatcherProperties;
 import com.mirth.connect.donkey.model.channel.DebugOptions;
 import com.mirth.connect.donkey.model.channel.DeployedState;
 import com.mirth.connect.donkey.model.channel.DestinationConnectorPropertiesInterface;
@@ -176,13 +182,12 @@ import javafx.application.Platform;
 /**
  * The main content frame for the Mirth Client Application. Extends JXFrame and sets up all content.
  */
-public class Frame extends FrameBase{
+public class Frame extends FrameBase {
 
     private Logger logger = LogManager.getLogger(this.getClass());
     public DashboardPanel dashboardPanel = null;
     public SettingsPane settingsPane = null;
     public UserPanel userPanel = null;
-    public ChannelSetup channelEditPanel = null;
     public EventBrowser eventBrowser = null;
     public MessageBrowser activeBrowser = null;
     public MessageBrowser messageBrowser = null;
@@ -243,6 +248,7 @@ public class Frame extends FrameBase{
     public LinkedHashMap<String, String> displayNameToDataType;
     private Map<String, PluginMetaData> loadedPlugins;
     private Map<String, ConnectorMetaData> loadedConnectors;
+    private Map<String, Map<String, String>> extensionMaxCoreVersions;
     private Map<String, Integer> safeErrorFailCountMap = new HashMap<String, Integer>();
     private Map<Component, String> componentTaskMap = new HashMap<Component, String>();
     private boolean acceleratorKeyPressed = false;
@@ -331,7 +337,11 @@ public class Frame extends FrameBase{
     
     private void initializeCoreClasses() {
     	TransmissionModeClientProvider.BASIC_MODE_CLIENT_PROVIDER_CLASS = BasicModeClientProvider.class;
+    	MIRTH_R_TEXT_SCROLL_PANE = MirthRTextScrollPane.class;
         ALERT_ACTION_PANE_CLASS = AlertActionPane.class;
+        Constants.HTTP_DISPATCHER_PROPERTIES_CLASS = HttpDispatcherProperties.class;
+        Constants.HTTP_RECEIVER_PROPERTIES_CLASS = HttpReceiverProperties.class;
+        Constants.WEB_SERVICE_DISPATCHER_PROPERTIES_CLASS = WebServiceDispatcherProperties.class;
     }
 
     @Override
@@ -818,6 +828,7 @@ public class Frame extends FrameBase{
     private void loadExtensionMetaData() throws ClientException {
         loadedPlugins = mirthClient.getPluginMetaData();
         loadedConnectors = mirthClient.getConnectorMetaData();
+        extensionMaxCoreVersions = mirthClient.getExtensionMaxCoreVersions();
 
         // Register extension JAX-RS providers with the client
         Set<String> apiProviderPackages = new HashSet<String>();
@@ -4750,6 +4761,7 @@ public class Frame extends FrameBase{
     }
 
     public void refreshExtensions() {
+        extensionsPanel.setExtensionMaxCoreVersions(getExtensionMaxCoreVersions());
         extensionsPanel.setPluginData(getPluginMetaData());
         extensionsPanel.setConnectorData(getConnectorMetaData());
     }
@@ -4999,6 +5011,11 @@ public class Frame extends FrameBase{
         return this.loadedConnectors;
     }
 
+    @Override
+    public Map<String, Map<String, String>> getExtensionMaxCoreVersions() {
+        return this.extensionMaxCoreVersions;
+    }
+
     public String getSelectedChannelIdFromDashboard() {
         return dashboardPanel.getSelectedStatuses().get(0).getChannelId();
     }
@@ -5147,6 +5164,7 @@ public class Frame extends FrameBase{
         }
     }
 
+    @Override
     public List<ResourceProperties> getResources() {
         if (settingsPane == null) {
             settingsPane = new SettingsPane();
@@ -5250,12 +5268,12 @@ public class Frame extends FrameBase{
 
 	@Override
 	public TemplatePanelBase getInboundTemplatePanel() {
-		return channelEditPanel.transformerPane.templatePanel.getMessageTemplatePanel().getInboundTemplatePanel();
+		return ((TabbedTemplatePanel) channelEditPanel.transformerPane.templatePanel).getMessageTemplatePanel().getInboundTemplatePanel();
 	}
 
 	@Override
 	public TemplatePanelBase getOutboundTemplatePanel() {
-		return channelEditPanel.transformerPane.templatePanel.getMessageTemplatePanel().getOutboundTemplatePanel();
+		return ((TabbedTemplatePanel) channelEditPanel.transformerPane.templatePanel).getMessageTemplatePanel().getOutboundTemplatePanel();
 	}
 
 	@Override
@@ -5264,6 +5282,10 @@ public class Frame extends FrameBase{
 	}
 
 	@Override
+	public ChannelSetupBase getChannelEditPanel() {
+		return channelEditPanel;
+	}
+	
 	public void setAlertPanel(AlertPanel panel) {
 		this.alertPanel = panel;
 	}
@@ -5332,4 +5354,5 @@ public class Frame extends FrameBase{
 	public JXTaskPane getAlertTasks() {
 		return this.alertTasks;
 	}
+
 }

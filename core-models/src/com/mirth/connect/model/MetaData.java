@@ -10,6 +10,7 @@
 package com.mirth.connect.model;
 
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
@@ -25,6 +26,9 @@ public abstract class MetaData {
     private String author;
     private String mirthVersion;
     private String pluginVersion;
+    private String pluginBuildNumber;
+    private Boolean coreExtension;
+    private Map<String, String> minCoreVersions;
     private String url;
     private String description;
     @XStreamAlias("apiProviders")
@@ -75,6 +79,30 @@ public abstract class MetaData {
 
     public void setPluginVersion(String pluginVersion) {
         this.pluginVersion = pluginVersion;
+    }
+
+    public String getPluginBuildNumber() {
+        return pluginBuildNumber;
+    }
+
+    public void setPluginBuildNumber(String pluginBuildNumber) {
+        this.pluginBuildNumber = pluginBuildNumber;
+    }
+
+    public Boolean isCoreExtension() {
+        return coreExtension;
+    }
+
+    public void setCoreExtension(Boolean coreExtension) {
+        this.coreExtension = coreExtension;
+    }
+
+    public Map<String, String> getMinCoreVersions() {
+        return minCoreVersions;
+    }
+
+    public void setMinCoreVersions(Map<String, String> minCoreVersions) {
+        this.minCoreVersions = minCoreVersions;
     }
 
     public String getUrl() {

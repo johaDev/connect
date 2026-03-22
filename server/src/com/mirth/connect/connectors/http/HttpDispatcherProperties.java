@@ -18,6 +18,7 @@ import java.util.Map.Entry;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 
+import com.mirth.connect.connectors.core.http.IHttpDispatcherProperties;
 import com.mirth.connect.donkey.model.channel.ConnectorProperties;
 import com.mirth.connect.donkey.model.channel.DestinationConnectorProperties;
 import com.mirth.connect.donkey.model.channel.DestinationConnectorPropertiesInterface;
@@ -25,7 +26,7 @@ import com.mirth.connect.donkey.model.channel.RemoteHostConnectorProperties;
 import com.mirth.connect.donkey.util.DonkeyElement;
 import com.mirth.connect.donkey.util.purge.PurgeUtil;
 
-public class HttpDispatcherProperties extends ConnectorProperties implements DestinationConnectorPropertiesInterface, RemoteHostConnectorProperties {
+public class HttpDispatcherProperties extends ConnectorProperties implements DestinationConnectorPropertiesInterface, RemoteHostConnectorProperties, IHttpDispatcherProperties {
 
     private DestinationConnectorProperties destinationConnectorProperties;
 
@@ -136,10 +137,12 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         return host;
     }
 
+    @Override
     public void setHost(String host) {
         this.host = host;
     }
 
+    @Override
     public boolean isUseProxyServer() {
         return useProxyServer;
     }
@@ -148,6 +151,7 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.useProxyServer = useProxyServer;
     }
 
+    @Override
     public String getProxyAddress() {
         return proxyAddress;
     }
@@ -156,6 +160,7 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.proxyAddress = proxyAddress;
     }
 
+    @Override
     public String getProxyPort() {
         return proxyPort;
     }
@@ -172,10 +177,12 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.method = method;
     }
 
+    @Override
     public Map<String, List<String>> getHeadersMap() {
         return headers;
     }
     
+    @Override
     public boolean isUseHeadersVariable() {
         return useHeadersVariable;
     }
@@ -188,6 +195,7 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.headers = headers;
     }
 
+    @Override
     public String getHeadersVariable() {
         return this.headersVariable;
     }
@@ -200,10 +208,12 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         return parameters;
     }
 
+    @Override
     public void setParametersMap(Map<String, List<String>> parameters) {
         this.parameters = parameters;
     }
 
+    @Override
     public boolean isUseParametersVariable() {
         return useParametersVariable;
     }
@@ -211,7 +221,8 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
     public void setUseParametersVariable(boolean useParametersVariable) {
         this.useParametersVariable = useParametersVariable;
     }
-    
+
+    @Override    
     public String getParametersVariable() {
         return this.parametersVariable;
     }
@@ -220,6 +231,7 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.parametersVariable = variableName;
     }
 
+    @Override
     public boolean isResponseXmlBody() {
         return responseXmlBody;
     }
@@ -228,6 +240,7 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.responseXmlBody = responseXmlBody;
     }
 
+    @Override
     public boolean isResponseParseMultipart() {
         return responseParseMultipart;
     }
@@ -236,6 +249,7 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.responseParseMultipart = responseParseMultipart;
     }
 
+    @Override
     public boolean isResponseIncludeMetadata() {
         return responseIncludeMetadata;
     }
@@ -244,6 +258,7 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.responseIncludeMetadata = responseIncludeMetadata;
     }
 
+    @Override
     public String getResponseBinaryMimeTypes() {
         return responseBinaryMimeTypes;
     }
@@ -252,6 +267,7 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.responseBinaryMimeTypes = responseBinaryMimeTypes;
     }
 
+    @Override
     public boolean isResponseBinaryMimeTypesRegex() {
         return responseBinaryMimeTypesRegex;
     }
@@ -260,6 +276,7 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.responseBinaryMimeTypesRegex = responseBinaryMimeTypesRegex;
     }
 
+    @Override
     public boolean isMultipart() {
         return multipart;
     }
@@ -268,14 +285,17 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.multipart = multipart;
     }
 
+    @Override
     public boolean isUseAuthentication() {
         return useAuthentication;
     }
 
+    @Override
     public void setUseAuthentication(boolean useAuthentication) {
         this.useAuthentication = useAuthentication;
     }
 
+    @Override
     public String getAuthenticationType() {
         return authenticationType;
     }
@@ -284,6 +304,7 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.authenticationType = authenticationType;
     }
 
+    @Override
     public boolean isUsePreemptiveAuthentication() {
         return usePreemptiveAuthentication;
     }
@@ -296,14 +317,17 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         return username;
     }
 
+    @Override
     public void setUsername(String username) {
         this.username = username;
     }
 
+    @Override
     public String getPassword() {
         return password;
     }
 
+    @Override
     public void setPassword(String password) {
         this.password = password;
     }
@@ -316,14 +340,17 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.content = content;
     }
 
+    @Override
     public String getContentType() {
         return contentType;
     }
 
+    @Override
     public void setContentType(String contentType) {
         this.contentType = contentType;
     }
 
+    @Override
     public boolean isDataTypeBinary() {
         return dataTypeBinary;
     }
@@ -332,6 +359,7 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         this.dataTypeBinary = dataTypeBinary;
     }
 
+    @Override
     public String getCharset() {
         return charset;
     }
@@ -345,6 +373,7 @@ public class HttpDispatcherProperties extends ConnectorProperties implements Des
         return socketTimeout;
     }
 
+    @Override
     public void setSocketTimeout(String socketTimeout) {
         this.socketTimeout = socketTimeout;
     }
